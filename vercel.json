@@ -19,7 +19,7 @@
       "destination": "/frontend/src/:path*"
     },
     {
-      "source": "/:path*",
+      "source": "/frontend",
       "destination": "/frontend/index.html"
     }
   ]
