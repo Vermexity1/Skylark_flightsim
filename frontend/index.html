@@ -1,0 +1,3520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlightSim — Browser Flight Simulator</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Three.js from CDN (importmap for ES modules) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:   #62c8ff;
+      --green:  #7cf0d4;
+      --orange: #45a2ff;
+      --red:    #ff5d78;
+      --dark:   #040d18;
+      --panel:  rgba(9, 18, 34, 0.82);
+      --border: rgba(98, 200, 255, 0.24);
+      --text:   #d7efff;
+    }
+
+    body {
+      background: var(--dark);
+      overflow: hidden;
+      font-family: 'Outfit', sans-serif;
+      color: var(--text);
+      user-select: none;
+    }
+
+    canvas { display: block; }
+
+    /* ── Screens ── */
+    .screen {
+      position: fixed; inset: 0; z-index: 20;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background:
+        radial-gradient(circle at 20% 15%, rgba(79, 174, 255, 0.16), transparent 26%),
+        radial-gradient(circle at 78% 22%, rgba(94, 255, 227, 0.12), transparent 24%),
+        linear-gradient(160deg, #03101d 0%, #081427 48%, #020811 100%);
+    }
+    #screen-splash {
+      z-index: 28;
+      transition: opacity 0.55s ease;
+      overflow: hidden;
+    }
+    #screen-splash::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(112, 236, 255, 0.18), transparent 22%),
+        radial-gradient(circle at 82% 16%, rgba(63, 155, 255, 0.24), transparent 24%),
+        linear-gradient(160deg, rgba(2,10,18,0.94) 0%, rgba(5,16,28,0.84) 42%, rgba(2,10,18,0.96) 100%);
+    }
+    #screen-splash::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(2,10,18,0.56) 0%, rgba(4,16,30,0.16) 38%, rgba(4,16,30,0.08) 64%, rgba(2,10,18,0.62) 100%),
+        radial-gradient(circle at 18% 28%, rgba(111,242,255,0.1), transparent 24%),
+        radial-gradient(circle at 82% 22%, rgba(83,191,255,0.14), transparent 30%);
+      pointer-events: none;
+    }
+    #splash-stage {
+      position: relative;
+      z-index: 1;
+      width: min(94vw, 1180px);
+      aspect-ratio: 16 / 9;
+      border-radius: 30px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.16);
+      box-shadow: 0 42px 130px rgba(0, 6, 18, 0.62);
+      background: linear-gradient(155deg, rgba(7,18,34,0.84), rgba(5,12,24,0.68));
+      isolation: isolate;
+    }
+    #splash-stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url('/assets/skylark-splash.svg') center/cover no-repeat;
+      filter: saturate(1.04) brightness(1.03);
+      transform: scale(1.005);
+    }
+    #splash-stage::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(130deg, rgba(4,12,22,0.12) 0%, rgba(4,12,22,0.02) 42%, rgba(4,12,22,0.22) 100%),
+        linear-gradient(0deg, rgba(4,12,24,0.42), rgba(4,12,24,0.03) 38%, rgba(4,12,24,0.18) 100%);
+      pointer-events: none;
+    }
+    #splash-pulse,
+    #splash-loading-caption {
+      display: none !important;
+    }
+    #splash-meta { display: none !important; }
+    #splash-meta-kicker {
+      font-size: 10px;
+      letter-spacing: 4px;
+      color: rgba(214, 243, 255, 0.8);
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+    }
+    #splash-meta-title {
+      font-size: clamp(24px, 3vw, 34px);
+      line-height: 1;
+      font-weight: 800;
+      color: #f3fbff;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    #splash-meta-sub {
+      font-size: 13px;
+      line-height: 1.6;
+      color: rgba(220, 239, 255, 0.78);
+    }
+    #splash-progress-shell {
+      position: absolute;
+      left: 34px;
+      right: 34px;
+      bottom: 34px;
+      z-index: 2;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.14);
+    }
+    #splash-progress-copy {
+      min-width: 0;
+      max-width: 420px;
+      flex: 1 1 320px;
+    }
+    #splash-progress-kicker {
+      font-size: 10px;
+      letter-spacing: 3px;
+      color: rgba(214, 243, 255, 0.66);
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+    }
+    #splash-progress-wrap {
+      width: min(44vw, 420px);
+    }
+    #splash-progress {
+      width: 100%;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    #splash-progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #53bfff, #77f1ff, #7cf0d4);
+      box-shadow: 0 0 24px rgba(119, 241, 255, 0.34);
+      transition: width 0.28s ease;
+    }
+    #splash-status {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #cceaff;
+      letter-spacing: 1px;
+      text-align: left;
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+    }
+    @keyframes splashDrift {
+      0%, 100% { transform: scale(1.04) translate3d(0, 0, 0); }
+      50% { transform: scale(1.08) translate3d(-1.2%, -0.8%, 0); }
+    }
+    @keyframes splashPulse {
+      0%, 100% { transform: translateX(-50%) scale(0.95); opacity: 0.36; }
+      50% { transform: translateX(-50%) scale(1.06); opacity: 0.7; }
+    }
+    @media (max-width: 900px) {
+      #splash-stage { width: min(96vw, 760px); aspect-ratio: auto; min-height: 72vh; }
+      #splash-progress-shell { left: 24px; right: 24px; bottom: 28px; flex-direction: column; align-items: stretch; gap: 14px; }
+      #splash-progress-wrap { width: 100%; }
+      #splash-status { text-align: left; }
+    }
+
+    #flight-toolbar {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      left: auto;
+      transform: none;
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 6px;
+      z-index: 16;
+      pointer-events: auto;
+      width: min(32vw, 430px);
+    }
+    #flight-toolbar .btn {
+      width: auto;
+      justify-content: center;
+      padding: 8px 12px;
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      backdrop-filter: blur(10px);
+    }
+    @media (max-width: 900px) {
+      #flight-toolbar {
+        top: auto;
+        bottom: 22px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: min(92vw, 560px);
+        justify-content: center;
+      }
+      #flight-toolbar .btn {
+        width: auto;
+        justify-content: center;
+      }
+    }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 28px; border: none; border-radius: 8px; cursor: pointer;
+      font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600;
+      letter-spacing: 0.05em; transition: all 0.18s ease;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #2c76ff, #67d1ff);
+      color: #f4fbff; box-shadow: 0 4px 20px rgba(61,144,255,0.35);
+    }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 28px rgba(61,144,255,0.5); }
+    .btn-accent {
+      background: linear-gradient(135deg, #168db6, #6ff2ff);
+      color: #f4fbff; box-shadow: 0 4px 16px rgba(43,191,255,0.3);
+    }
+    .btn-accent:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(43,191,255,0.45); }
+    .btn-ghost {
+      background: rgba(255,255,255,0.06); color: var(--text);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.1); border-color: var(--blue); color: #fff; }
+
+    /* ── Panel card ── */
+    .card {
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 12px; backdrop-filter: blur(12px);
+      box-shadow: 0 22px 70px rgba(0, 6, 18, 0.35);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(98,200,255,0.24); border-radius: 3px; }
+
+    /* ── Selection card ── */
+    .sel-card {
+      background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 12px; cursor: pointer;
+      transition: all 0.18s ease;
+    }
+    .sel-card:hover { border-color: rgba(98,200,255,0.35); background: rgba(98,200,255,0.07); }
+    .sel-card.active { border-color: rgba(98,200,255,0.62); background: rgba(98,200,255,0.12); box-shadow: 0 0 18px rgba(98,200,255,0.12); }
+
+    /* ── Stat bar ── */
+    .stat-bar { height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 3px; }
+    .stat-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, #4d9bff, #7cf0d4); transition: width 0.3s; }
+
+    /* ── Tab strip ── */
+    .tab-strip { display: flex; gap: 2px; background: rgba(0,0,0,0.4); border-radius: 8px; padding: 3px; }
+    .tab-btn {
+      flex: 1; padding: 7px 14px; border: none; border-radius: 6px; background: transparent;
+      color: #8f806d; cursor: pointer; font-size: 11px; font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 1.5px; font-weight: 700; transition: all 0.15s;
+    }
+    .tab-btn.active { background: rgba(98,200,255,0.16); color: #95ddff; }
+
+    .theme-select {
+      width: 100%;
+      background: rgba(8, 20, 44, 0.78);
+      border: 1px solid rgba(98,200,255,0.22);
+      color: #dff4ff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      outline: none;
+      appearance: none;
+    }
+    .theme-select option {
+      background: #081427;
+      color: #dff4ff;
+    }
+
+    /* ── Leaderboard ── */
+    .lb-row { display: grid; grid-template-columns: 30px 1fr 80px 70px 70px; gap: 8px; align-items: center; padding: 8px 14px; }
+    .lb-row:nth-child(even) { background: rgba(255,255,255,0.03); }
+    .lb-row.header { background: transparent; border-bottom: 1px solid rgba(98,200,255,0.15); color: #89b7dd; font-size: 9px; letter-spacing: 2px; }
+
+    /* ── Pause menu ── */
+    #pause-menu {
+      position: fixed; inset: 0; z-index: 30; display: none;
+      background: rgba(0,5,15,0.85); backdrop-filter: blur(10px);
+      align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #pause-menu.visible { display: flex; }
+
+    /* ── Notification toast ── */
+    #toast {
+      position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,8,20,0.9); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 20px; z-index: 50;
+      font-size: 12px; letter-spacing: 1px; pointer-events: none;
+      transition: opacity 0.4s; opacity: 0;
+    }
+
+    /* ── Star background (canvas stars) ── */
+    #stars-canvas { position: fixed; inset: 0; z-index: 0; opacity: 0.6; }
+    #screen-menu::before,
+    #screen-menu::after {
+      content: '';
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(90px);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+    #screen-menu::before {
+      width: 360px; height: 360px;
+      top: 10%; left: 6%;
+      background: rgba(66, 160, 255, 0.22);
+    }
+    #screen-menu::after {
+      width: 300px; height: 300px;
+      right: 8%; bottom: 12%;
+      background: rgba(102, 246, 255, 0.16);
+    }
+    #menu-hero {
+      overflow: hidden;
+      animation: menuFloat 9s ease-in-out infinite;
+    }
+    #menu-hero::after {
+      content: '';
+      position: absolute;
+      inset: -20% auto -20% -30%;
+      width: 42%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+      transform: skewX(-20deg);
+      animation: heroSweep 5.8s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes menuFloat {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    @keyframes heroSweep {
+      0% { transform: translateX(-10%) skewX(-20deg); opacity: 0; }
+      10% { opacity: 1; }
+      55% { opacity: 1; }
+      100% { transform: translateX(310%) skewX(-20deg); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Animated star background (menus only) -->
+<canvas id="stars-canvas"></canvas>
+<div id="screen-splash" class="screen" style="z-index:28; display:flex;">
+  <div id="splash-stage">
+    <div id="splash-pulse"></div>
+    <div id="splash-loading-caption">Aether Edition · Flight Deck Boot Sequence</div>
+    <div id="splash-progress-shell">
+      <div id="splash-progress-copy">
+        <div id="splash-progress-kicker">Flight deck loading</div>
+        <div id="splash-status">Initializing hangar and terrain</div>
+      </div>
+      <div id="splash-progress-wrap">
+        <div id="splash-progress"><div id="splash-progress-fill"></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════ AUTH ════════════════════════════ -->
+<div id="screen-auth" class="screen" style="z-index:24; display:none;">
+  <div style="position:relative; z-index:1; width:min(94vw,980px); display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:24px; align-items:stretch;">
+    <div class="card" style="padding:34px 30px; border-radius:28px; background:linear-gradient(180deg, rgba(7,18,32,0.92), rgba(5,12,24,0.84)); min-height:520px; display:flex; flex-direction:column; justify-content:center;">
+      <div style="font-size:11px; letter-spacing:4px; color:#7ee6ff; font-family:'JetBrains Mono',monospace; margin-bottom:14px;">FLIGHTSIM ACCOUNT</div>
+      <h1 style="font-size:clamp(34px,6vw,56px); line-height:1.04; margin:0 0 14px; font-weight:800; background:linear-gradient(135deg,#f4fbff 20%,#84dfff 58%,#71ffd8 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">Sign Up To Fly</h1>
+      <div style="font-size:14px; color:#9bc7e9; line-height:1.8; max-width:42ch;">
+        Create a pilot account to sync your fleet, ranks, money, repairs, and settings across devices. Returning pilots can sign in and continue from the same profile.
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:22px;">
+        <div class="card" style="padding:10px 14px; background:rgba(12,28,52,0.64); border-color:rgba(98,200,255,0.14); font-size:11px; color:#d8efff;">Persistent career</div>
+        <div class="card" style="padding:10px 14px; background:rgba(12,28,52,0.64); border-color:rgba(98,200,255,0.14); font-size:11px; color:#d8efff;">Cross-device sync</div>
+        <div class="card" style="padding:10px 14px; background:rgba(12,28,52,0.64); border-color:rgba(98,200,255,0.14); font-size:11px; color:#d8efff;">Cloud save</div>
+      </div>
+      <div id="auth-screen-status" style="margin-top:18px; font-size:11px; color:#8db8dd; letter-spacing:1px;"></div>
+    </div>
+    <div class="card" style="padding:34px 30px; border-radius:28px; background:linear-gradient(180deg, rgba(12,24,44,0.92), rgba(7,16,30,0.88)); min-height:520px; display:flex; flex-direction:column; justify-content:center;">
+      <div style="font-size:10px; color:#8db8dd; letter-spacing:3px; margin-bottom:16px;">PILOT ACCESS</div>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <label style="display:flex; flex-direction:column; gap:7px; font-size:12px; color:#dff4ff;">
+          <span>Username</span>
+          <input id="entry-username" type="text" autocomplete="username" style="width:100%; padding:12px 14px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:10px; color:#dff4ff;" />
+        </label>
+        <label style="display:flex; flex-direction:column; gap:7px; font-size:12px; color:#dff4ff;">
+          <span>Password</span>
+          <input id="entry-password" type="password" autocomplete="current-password" style="width:100%; padding:12px 14px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:10px; color:#dff4ff;" />
+        </label>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:10px; margin-top:18px;">
+        <button class="btn btn-primary" onclick="App.signUp()" style="font-size:14px; padding:14px 18px;">Create Pilot Account</button>
+        <button class="btn btn-ghost" onclick="App.signIn()" style="font-size:13px; padding:12px 18px;">Sign In</button>
+      </div>
+      <div style="margin-top:16px; font-size:11px; color:#8db8dd; line-height:1.7;">
+        New players should start here. After account setup, the mission menu and garage unlock automatically.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════ MAIN MENU ════════════════════════════ -->
+<div id="screen-menu" class="screen" style="z-index:22;">
+  <div id="menu-hero" style="position:relative; z-index:1; text-align:center; max-width:760px; width:min(92vw,760px); padding:46px 42px; border-radius:28px; border:1px solid rgba(98,200,255,0.18); background:linear-gradient(180deg, rgba(10,20,38,0.82), rgba(6,14,28,0.74)); box-shadow:0 24px 90px rgba(0,8,22,0.42);">
+
+    <div style="margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:10px;">
+      <div style="font-size:10px; letter-spacing:4px; color:#00e5ff; font-family:'JetBrains Mono',monospace;">✈ FLIGHTSIM</div>
+    </div>
+    <h1 style="font-size:clamp(36px,8vw,64px); font-weight:800; line-height:1.05; margin-bottom:8px;
+      background:linear-gradient(135deg,#f4fbff 18%,#80d8ff 60%,#6ff2ff 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">
+      Take Flight
+    </h1>
+    <p id="menu-subtitle" style="font-size:14px; color:#99c7ea; margin-bottom:22px; line-height:1.6;">
+      Browser-based 3D flight simulator.<br/>Six aircraft · Five environments · Full physics.
+    </p>
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:28px;">
+      <div class="card" style="padding:10px 14px; background:rgba(12,28,52,0.64); border-color:rgba(98,200,255,0.14); font-size:11px; color:#d8efff;">Procedural terrain</div>
+      <div class="card" style="padding:10px 14px; background:rgba(12,28,52,0.64); border-color:rgba(98,200,255,0.14); font-size:11px; color:#d8efff;">Uploaded aircraft assets</div>
+      <div class="card" style="padding:10px 14px; background:rgba(12,28,52,0.64); border-color:rgba(98,200,255,0.14); font-size:11px; color:#d8efff;">Flight assist + tricks</div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <button id="menu-new-mission" class="btn btn-primary" data-ui-sound="launch" onclick="App.showSelect()" style="font-size:16px; padding:16px 36px;">
+        ✈ New Mission
+      </button>
+      <button id="menu-repair-hangar" class="btn btn-accent" onclick="App.showGarage()">
+        Garage
+      </button>
+      <button id="menu-leaderboard" class="btn btn-ghost" onclick="App.showLeaderboard()">
+        🏆 Leaderboard
+      </button>
+      <button id="menu-settings" class="btn btn-ghost" onclick="App.showSettings()">
+        ⚙ Settings
+      </button>
+      <button id="menu-career" class="btn btn-ghost" onclick="App.showCareer()">
+        🏁 Ranks
+      </button>
+    </div>
+
+    <div style="margin-top:32px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
+      <div style="font-size:10px; color:#73a7cf; letter-spacing:1px;">8 AIRCRAFT</div>
+      <div style="font-size:10px; color:#3a4a5a;">·</div>
+      <div style="font-size:10px; color:#3a4a5a; letter-spacing:1px;">5 ENVIRONMENTS</div>
+      <div style="font-size:10px; color:#3a4a5a;">·</div>
+      <div style="font-size:10px; color:#3a4a5a; letter-spacing:1px;">REAL PHYSICS</div>
+    </div>
+    <div id="menu-account-status" style="margin-top:16px; font-size:11px; color:#8db8dd; letter-spacing:1px;"></div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ AIRCRAFT SELECT ══════════════════════════ -->
+<div id="screen-select" class="screen" style="display:none; z-index:22;">
+  <div style="position:relative; z-index:1; width:100%; max-width:1100px; height:100%; display:flex; flex-direction:column; padding:20px;">
+
+    <!-- Header -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+      <button class="btn btn-ghost" onclick="App.showMenu()" style="padding:8px 16px; font-size:12px;">← Back</button>
+      <h2 style="font-size:18px; font-weight:700; letter-spacing:2px;">MISSION SETUP</h2>
+      <div style="width:80px;"></div>
+    </div>
+
+    <!-- Tab strip -->
+    <div class="tab-strip" style="margin-bottom:18px; max-width:360px; align-self:center;" id="setup-tabs">
+      <button class="tab-btn active" id="tab-aircraft" data-tab="aircraft" onclick="App.switchTab('aircraft')">AIRCRAFT</button>
+      <button class="tab-btn"        id="tab-env" data-tab="env" onclick="App.switchTab('env')">ENVIRONMENT</button>
+      <button class="tab-btn"        id="tab-mode" data-tab="mode" onclick="App.switchTab('mode')">MODE</button>
+      <button class="tab-btn"        id="tab-custom" data-tab="custom" onclick="App.switchTab('custom')">CUSTOM</button>
+    </div>
+
+    <!-- Tab content -->
+    <div style="flex:1; overflow-y:auto; padding-bottom:8px;">
+
+      <!-- Aircraft tab -->
+      <div id="tab-content-aircraft" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px;">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Environment tab -->
+      <div id="tab-content-env" style="display:none; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px;">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Mode tab -->
+      <div id="tab-content-mode" style="display:none; max-width:520px; margin:0 auto; flex-direction:column; gap:14px;">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Custom plane tab -->
+      <div id="tab-content-custom" style="display:none; max-width:760px; margin:0 auto;">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Launch button -->
+    <div style="padding-top:16px; display:flex; align-items:center; justify-content:center; gap:16px;">
+      <div id="setup-summary" style="font-size:11px; color:#6688aa; letter-spacing:1px; text-align:right;"></div>
+    <button id="launch-game" class="btn btn-accent" data-ui-sound="launch" onclick="App.launchGame()" style="font-size:15px; padding:14px 40px;">
+        Launch ✈
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ LEADERBOARD ══════════════════════════════ -->
+<div id="screen-leaderboard" class="screen" style="display:none; z-index:22;">
+  <div style="position:relative; z-index:1; width:100%; max-width:700px; padding:20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+      <button class="btn btn-ghost" onclick="App.showMenu()" style="padding:8px 16px; font-size:12px;">← Back</button>
+      <h2 style="font-size:18px; font-weight:700; letter-spacing:2px;">LEADERBOARD</h2>
+      <button class="btn btn-ghost" onclick="App.loadLeaderboard()" style="padding:8px 16px; font-size:12px;">↻ Refresh</button>
+    </div>
+    <div style="display:flex; gap:8px; margin-bottom:12px; justify-content:center; flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="App.loadLeaderboard('all')" style="padding:8px 14px; font-size:11px;">All Scores</button>
+      <button class="btn btn-ghost" onclick="App.loadLeaderboard('challenge')" style="padding:8px 14px; font-size:11px;">Challenge</button>
+      <button class="btn btn-ghost" onclick="App.loadLeaderboard('race_online_ranked')" style="padding:8px 14px; font-size:11px;">Legend Race</button>
+    </div>
+    <div class="card" style="overflow:hidden;">
+      <div class="lb-row header" style="font-family:'JetBrains Mono',monospace;">
+        <span>#</span><span>PLAYER</span><span>AIRCRAFT</span><span>MODE</span><span style="text-align:right;">SCORE</span>
+      </div>
+      <div id="lb-body" style="min-height:200px; font-size:13px; font-family:'JetBrains Mono',monospace;">
+        <div style="padding:40px; text-align:center; color:#3a4a5a;">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ SETTINGS ════════════════════════════════ -->
+<div id="screen-settings" class="screen" style="display:none; z-index:22;">
+  <div style="position:relative; z-index:1; width:100%; max-width:920px; max-height:min(88vh,860px); overflow:auto; padding:20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="App.showMenu()" style="padding:8px 16px; font-size:12px;">← Back</button>
+      <h2 style="font-size:18px; font-weight:700; letter-spacing:2px;">SETTINGS</h2>
+      <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">PERSISTENT</div>
+    </div>
+    <div class="card" style="padding:20px; display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px;">
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
+        <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:14px;">GRAPHICS</div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <label style="display:flex; align-items:center; justify-content:space-between;"><span>Bloom</span><input id="settings-bloom" type="checkbox"/></label>
+          <label style="display:flex; align-items:center; justify-content:space-between;"><span>Contrails</span><input id="settings-contrail" type="checkbox"/></label>
+          <label style="display:flex; align-items:center; justify-content:space-between;"><span>Shadows</span><input id="settings-shadows" type="checkbox"/></label>
+          <label style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;">
+            <span>Render Quality</span>
+            <select id="settings-quality" class="theme-select">
+              <option value="auto">Auto</option>
+              <option value="performance">Performance</option>
+              <option value="balanced">Balanced</option>
+              <option value="quality">Quality</option>
+            </select>
+          </label>
+          <label style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;">
+            <span>FPS Cap</span>
+            <select id="settings-fps-cap" class="theme-select">
+              <option value="0">Unlimited</option>
+              <option value="60">60 FPS</option>
+              <option value="90">90 FPS</option>
+              <option value="120">120 FPS</option>
+              <option value="144">144 FPS</option>
+              <option value="240">240 FPS</option>
+            </select>
+          </label>
+          <label style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;">
+            <span>Weather</span>
+            <select id="settings-weather" class="theme-select">
+              <option value="none">Auto / None</option>
+              <option value="rain">Rain</option>
+              <option value="snow">Snow</option>
+              <option value="storm">Storm</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
+        <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:14px;">FLIGHT HUD</div>
+        <div style="display:flex; flex-direction:column; gap:12px;">
+          <label style="display:flex; align-items:center; justify-content:space-between;"><span>Advanced UI Mode</span><input id="settings-advanced-ui" type="checkbox"/></label>
+          <label style="display:flex; align-items:center; justify-content:space-between;"><span>Guidance Enabled on Start</span><input id="settings-guidance" type="checkbox"/></label>
+          <label style="display:flex; align-items:center; justify-content:space-between;"><span>Auto Land on Start</span><input id="settings-autoland" type="checkbox"/></label>
+          <label style="display:flex; flex-direction:column; align-items:flex-start; gap:6px;">
+            <span>Gun Aim Mode</span>
+            <select id="settings-gun-mode" class="theme-select">
+              <option value="follow">Follow Nose</option>
+              <option value="free">Free Cursor</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">CONTROLS</div>
+          <button class="btn btn-ghost" onclick="App.resetControls()" style="padding:7px 12px; font-size:11px;">Reset</button>
+        </div>
+        <div id="settings-controls-hint" style="font-size:11px; color:#9fc7e7; margin-bottom:12px; line-height:1.5;">Click a binding and press a key.</div>
+        <div id="settings-controls-list" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px;"></div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">ACCOUNT CLOUD SAVE</div>
+          <div id="settings-auth-badge" style="font-size:10px; color:#9fc7e7;">LOCAL ONLY</div>
+        </div>
+        <div id="settings-auth-status" style="font-size:11px; color:#9fc7e7; margin-bottom:12px; line-height:1.5;">Sign in to sync ranks, money, repairs, and settings across devices.</div>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+            <span>Username</span>
+            <input id="auth-username" type="text" autocomplete="username" style="width:100%; padding:10px 12px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:8px; color:#dff4ff;" />
+          </label>
+          <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+            <span>Password</span>
+            <input id="auth-password" type="password" autocomplete="current-password" style="width:100%; padding:10px 12px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:8px; color:#dff4ff;" />
+          </label>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="App.signIn()" style="padding:9px 14px; font-size:11px;">Sign In</button>
+            <button class="btn btn-ghost" onclick="App.signUp()" style="padding:9px 14px; font-size:11px;">Create Account</button>
+            <button class="btn btn-ghost" onclick="App.syncProfile(true)" style="padding:9px 14px; font-size:11px;">Sync Now</button>
+            <button class="btn btn-ghost" onclick="App.signOut()" style="padding:9px 14px; font-size:11px;">Sign Out</button>
+          </div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px;">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">PILOT IDENTITY</div>
+          <div id="settings-player-role" style="font-size:10px; color:#9fc7e7;">GUEST</div>
+        </div>
+        <div id="settings-player-id" style="font:12px 'JetBrains Mono', monospace; color:#e8f4fd; margin-bottom:8px;">ID unavailable</div>
+        <div id="settings-player-status" style="font-size:11px; color:#9fc7e7; margin-bottom:10px; line-height:1.5;">Sign in to access your player record.</div>
+        <div id="settings-player-stats" style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;"></div>
+      </div>
+      <div id="settings-dev-panel" style="display:none; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">DEVELOPER CONSOLE</div>
+            <div id="settings-dev-status" style="font-size:11px; color:#9fc7e7; margin-top:8px;">Developer tools are available for this account.</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-accent" onclick="App.devGrantCredits()" style="padding:8px 12px; font-size:11px;">+$50K</button>
+            <button class="btn btn-ghost" onclick="App.devUnlockFleet()" style="padding:8px 12px; font-size:11px;">Unlock Fleet</button>
+            <button class="btn btn-ghost" onclick="App.devRepairFleet()" style="padding:8px 12px; font-size:11px;">Repair Fleet</button>
+            <button class="btn btn-ghost" onclick="App.refreshAdminUsers()" style="padding:8px 12px; font-size:11px;">Refresh Roster</button>
+          </div>
+        </div>
+        <div id="settings-dev-users" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow:auto;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ CAREER ══════════════════════════════════ -->
+<div id="screen-career" class="screen" style="display:none; z-index:22;">
+  <div style="position:relative; z-index:1; width:100%; max-width:min(96vw,980px); max-height:min(92vh,920px); overflow:auto; padding:12px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="App.showMenu()" style="padding:8px 16px; font-size:12px;">← Back</button>
+      <h2 style="font-size:18px; font-weight:700; letter-spacing:2px;">RANKS & CAREER</h2>
+      <div id="career-header-money" style="font-size:12px; color:#8edbff; letter-spacing:1px;"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; align-items:start;">
+      <div class="card" style="padding:18px;">
+        <div id="career-rank-summary" style="margin-bottom:16px;"></div>
+        <div id="career-history" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="card" style="padding:18px;">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:12px;">PLANE LICENSES</div>
+          <div id="career-plane-shop" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+        <div class="card" style="padding:18px;">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:12px;">WEAPONS BAY</div>
+          <div id="career-gun-shop" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ GAME SCREEN ══════════════════════════════ -->
+<!-- REPAIR HANGAR -->
+<div id="screen-hangar" class="screen" style="display:none; z-index:22;">
+  <div style="position:relative; z-index:1; width:100%; max-width:1180px; max-height:min(88vh,860px); overflow:auto; padding:20px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
+      <button class="btn btn-ghost" onclick="App.showMenu()" style="padding:8px 16px; font-size:12px;">â† Back</button>
+      <h2 style="font-size:18px; font-weight:700; letter-spacing:2px;">GARAGE</h2>
+      <div id="garage-header-money" style="font-size:12px; color:#8edbff; letter-spacing:1px;"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; align-items:start; margin-bottom:16px;">
+      <div class="card" style="padding:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">PLANE PREVIEW</div>
+          <div id="garage-preview-caption" style="font-size:11px; color:#9fc7e7;">Idle</div>
+        </div>
+        <canvas id="garage-preview-canvas" style="width:100%; height:320px; display:block; border-radius:12px; border:1px solid rgba(98,200,255,0.12); background:linear-gradient(180deg,#09182b 0%, #122740 48%, #1e3349 100%);"></canvas>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div class="card" style="padding:18px;">
+          <div id="garage-selected-title" style="font-size:20px; font-weight:800; color:#e8f4fd; margin-bottom:8px;">Select an aircraft</div>
+          <div id="garage-selected-meta" style="font-size:12px; color:#9fc7e7; line-height:1.7; margin-bottom:14px;"></div>
+          <div id="garage-actions" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
+        </div>
+        <div class="card" style="padding:18px;">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:12px;">WEAPONS BAY</div>
+          <div id="garage-gun-grid" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="padding:18px; max-height:min(72vh, 760px); overflow:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:12px; flex-wrap:wrap;">
+        <div style="font-size:11px; color:#6688aa; letter-spacing:2px; font-family:'JetBrains Mono',monospace;">AIRCRAFT ROSTER</div>
+        <div id="hangar-summary" style="font-size:11px; color:#99b2c9;"></div>
+      </div>
+      <div id="hangar-grid" style="display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<div id="repair-bay-modal" style="
+  display:none; position:fixed; inset:0; z-index:34;
+  background:rgba(0,5,15,0.82); backdrop-filter:blur(10px);
+  align-items:center; justify-content:center;
+">
+  <div class="card" style="padding:24px; width:min(92vw, 560px);">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px; color:#00e5ff; letter-spacing:3px; font-family:'JetBrains Mono',monospace;">REPAIR BAY</div>
+        <div id="repair-bay-aircraft" style="font-size:20px; font-weight:700; color:#e8f4fd; margin-top:6px;"></div>
+      </div>
+      <button class="btn btn-ghost" onclick="App.closeRepairBay()" style="padding:8px 14px; font-size:12px;">Close</button>
+    </div>
+    <div id="repair-bay-condition" style="font-size:12px; color:#99b2c9; margin-bottom:16px;"></div>
+    <div style="font-size:11px; color:#6688aa; letter-spacing:1px; margin-bottom:14px; line-height:1.6;">
+      Repair the highlighted systems. Complete all tasks to restore the aircraft to 100%.
+    </div>
+    <div id="repair-bay-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px;"></div>
+    <div id="repair-bay-status" style="font-size:11px; color:#00ff88; margin-top:16px; text-align:center;"></div>
+  </div>
+</div>
+
+<div id="screen-game" style="display:none; position:fixed; inset:0; z-index:20;">
+  <canvas id="game-canvas" style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
+  <div id="flight-toolbar">
+    <button id="btn-guidance-toggle" class="btn btn-primary" style="padding:10px 16px; font-size:12px;">Laser ON</button>
+    <button id="btn-autoland-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px;">Auto Land OFF</button>
+    <button id="btn-gun-mode-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px;">Gun: FOLLOW</button>
+    <button id="btn-assist-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px;">Assist OFF</button>
+    <button id="btn-camera-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px;">Camera: FOLLOW</button>
+    <button id="btn-reset-flight" class="btn btn-ghost" style="padding:10px 16px; font-size:12px; display:none;">Reset Aircraft</button>
+  </div>
+  <!-- HUD injected here by HUD.js -->
+  <div id="hud-mount"></div>
+</div>
+
+<!-- ════════════════════════════════ PAUSE MENU ═══════════════════════════════ -->
+<div id="pause-menu">
+  <div class="card" style="padding:22px; width:min(90vw,620px); max-height:min(88vh,760px); overflow:auto; text-align:center;">
+    <div style="font-size:11px; color:#d9aa58; letter-spacing:3px; margin-bottom:6px; font-family:'JetBrains Mono',monospace;">PAUSED</div>
+    <h2 style="font-size:24px; font-weight:700; margin-bottom:20px;">Mission Paused</h2>
+
+    <!-- Quick settings -->
+    <div style="
+      background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07);
+      border-radius:8px; padding:14px 16px; margin-bottom:18px; text-align:left;
+    ">
+      <div style="font-size:9px; color:#9d896b; letter-spacing:2px; margin-bottom:12px; font-family:'JetBrains Mono',monospace;">GRAPHICS</div>
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+          <span style="font-size:12px; color:#ccd6e8;">Bloom Effect</span>
+          <input type="checkbox" id="set-bloom" checked
+            style="width:16px; height:16px; accent-color:#d79a3b; cursor:pointer;" />
+        </label>
+        <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+          <span style="font-size:12px; color:#ccd6e8;">Contrail Trails</span>
+          <input type="checkbox" id="set-contrail" checked
+            style="width:16px; height:16px; accent-color:#d79a3b; cursor:pointer;" />
+        </label>
+        <label style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;">
+          <span style="font-size:12px; color:#ccd6e8;">Shadows</span>
+          <input type="checkbox" id="set-shadows" checked
+            style="width:16px; height:16px; accent-color:#d79a3b; cursor:pointer;" />
+        </label>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-size:12px; color:#ccd6e8;">Render Quality</span>
+          <select id="set-quality" class="theme-select"
+            style="max-width:150px; padding:7px 10px; font-size:11px; cursor:pointer;">
+            <option value="auto">Auto</option>
+            <option value="performance">Performance</option>
+            <option value="balanced">Balanced</option>
+            <option value="quality">Quality</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span style="font-size:12px; color:#ccd6e8;">FPS Cap</span>
+          <select id="set-fps-cap" class="theme-select"
+            style="max-width:150px; padding:7px 10px; font-size:11px; cursor:pointer;">
+            <option value="0">Unlimited</option>
+            <option value="60">60 FPS</option>
+            <option value="90">90 FPS</option>
+            <option value="120">120 FPS</option>
+            <option value="144">144 FPS</option>
+            <option value="240">240 FPS</option>
+          </select>
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-size:12px; color:#ccd6e8;">Weather</span>
+          <select id="set-weather" class="theme-select"
+            style="max-width:150px; padding:7px 10px; font-size:11px; cursor:pointer;">
+            <option value="none">Clear</option>
+            <option value="rain">Rain</option>
+            <option value="snow">Snow</option>
+            <option value="storm">Storm</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="
+      background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.07);
+      border-radius:8px; padding:14px 16px; margin-bottom:18px; text-align:left;
+    ">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:12px;">
+        <div style="font-size:9px; color:#9d896b; letter-spacing:2px; font-family:'JetBrains Mono',monospace;">CONTROLS</div>
+        <button class="btn btn-ghost" onclick="App.resetControls()" style="padding:6px 12px; font-size:11px;">Reset Defaults</button>
+      </div>
+      <div id="controls-rebind-hint" style="font-size:11px; color:#b7a791; margin-bottom:10px;">Click a binding, then press a key to remap it.</div>
+      <div id="controls-list" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:8px;"></div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <button class="btn btn-primary" onclick="App.resumeGame()">▶ Resume</button>
+      <button class="btn btn-ghost"   onclick="App.submitScorePrompt()">Submit Score</button>
+      <button class="btn btn-ghost"   onclick="App.exitToMenu()">Exit to Menu</button>
+    </div>
+    <div style="margin-top:16px; font-size:10px; color:#3a4a5a; letter-spacing:1px;">[ESC] to resume</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ SCORE SUBMIT ════════════════════════════ -->
+<div id="score-modal" style="
+  display:none; position:fixed; inset:0; z-index:40;
+  background:rgba(0,5,15,0.85); backdrop-filter:blur(10px);
+  align-items:center; justify-content:center;
+">
+  <div class="card" style="padding:28px; max-width:360px; width:90%; text-align:center;">
+    <div style="font-size:11px; color:#d9aa58; letter-spacing:3px; margin-bottom:16px; font-family:'JetBrains Mono',monospace;">SUBMIT SCORE</div>
+    <div id="score-display" style="font-size:40px; font-weight:800; color:#ffff66; margin-bottom:20px;"></div>
+    <input id="score-name" type="text" maxlength="20" placeholder="Enter your name…"
+      style="width:100%; padding:12px; background:rgba(0,0,0,0.6); border:1px solid var(--border);
+             border-radius:8px; color:#fff; font-size:14px; font-family:'Outfit',sans-serif; margin-bottom:14px;
+             outline:none; text-align:center;" />
+    <div style="display:flex; gap:10px;">
+      <button class="btn btn-ghost" onclick="App.closeScoreModal()" style="flex:1;">Cancel</button>
+      <button class="btn btn-accent" onclick="App.submitScore()" style="flex:1;">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════ CHALLENGE DONE ══════════════════════════ -->
+<div id="challenge-done" style="
+  display:none; position:fixed; inset:0; z-index:35;
+  background:rgba(0,5,15,0.88); backdrop-filter:blur(12px);
+  align-items:center; justify-content:center; flex-direction:column;
+">
+  <div class="card" style="padding:36px 48px; text-align:center; max-width:420px;">
+    <div style="font-size:36px; margin-bottom:8px;">🏆</div>
+    <div id="result-title" style="font-size:11px; color:#d9aa58; letter-spacing:3px; margin-bottom:8px; font-family:'JetBrains Mono',monospace;">CHALLENGE COMPLETE</div>
+    <div id="cd-time"  style="font-size:32px; font-weight:800; color:#ffff66; margin-bottom:4px;"></div>
+    <div id="cd-score" style="font-size:16px; color:#00ff88; margin-bottom:24px;"></div>
+    <div style="display:flex; gap:12px; justify-content:center;">
+      <button class="btn btn-accent" onclick="App.submitScorePrompt()" style="padding:12px 24px;">Submit Score</button>
+      <button class="btn btn-ghost"  onclick="App.exitToMenu()" style="padding:12px 24px;">Exit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- ════════════════════════════════ APP LOGIC ════════════════════════════════ -->
+<script type="module">
+  import * as THREE from 'three';
+  import { GameEngine } from './src/GameEngine.js';
+  import { HUD }        from './src/ui/HUD.js';
+  import { DamageSystem } from './src/systems/DamageSystem.js';
+  import { CareerSystem } from './src/systems/CareerSystem.js';
+  import { AircraftModels } from './src/aircraft/AircraftModels.js';
+  import { AIRCRAFT, ENVIRONMENTS, CONTROLS, RACE } from './src/config.js';
+  import { ASSET_SOURCES } from './src/assets/AssetCatalog.js';
+
+  // ── Constants ────────────────────────────────────────────
+  const API_BASE = window.location.origin + '/api';
+  const ONLINE_RACE_MODES = new Set(['race_online_casual', 'race_online_ranked', 'race_online_private']);
+  const APP_SETTINGS_KEY = 'flightsim-app-settings-v2';
+  const CUSTOM_PLANE_STORAGE_KEY = 'flightsim-custom-plane-v1';
+  const CONTROL_STORAGE_KEY = 'flightsim-controls-v2';
+  const AUTH_STORAGE_KEY = 'flightsim-auth-v1';
+  const DEFAULT_APP_SETTINGS = {
+    bloom: true,
+    contrail: true,
+    shadows: true,
+    weather: 'none',
+    advancedUi: false,
+    guidanceEnabled: true,
+    autoLandDefault: false,
+    gunAimMode: 'follow',
+    quality: 'balanced',
+    fpsCap: 0,
+  };
+  function defaultActivityState() {
+    return {
+      selectedAircraft: 'prop',
+      selectedEnvironment: 'mountains',
+      selectedMode: 'free_fly',
+      practiceRankIndex: 0,
+      lastAircraft: null,
+      lastEnvironment: null,
+      lastMode: null,
+      lastPlayedAt: null,
+      lastOutcome: null,
+      totalLaunches: 0,
+      totalCrashes: 0,
+      totalLandings: 0,
+      totalRaceStarts: 0,
+      totalChallengeStarts: 0,
+    };
+  }
+  function normalizeActivityState(next = null) {
+    return { ...defaultActivityState(), ...(next ?? {}) };
+  }
+  const appSettings = loadAppSettings();
+
+  // ── State ────────────────────────────────────────────────
+  let engine  = null;
+  let hud     = null;
+  let state   = null;
+  const damageStore = new DamageSystem();
+  const careerStore = new CareerSystem();
+  let authState = loadAuthState();
+  let adminConsole = {
+    loading: false,
+    error: '',
+    users: [],
+  };
+  let profileSyncTimer = 0;
+  const repairBay = {
+    type: null,
+    tasks: [],
+    completed: new Set(),
+  };
+  const REPAIR_TASK_POOL = [
+    { id: 'avionics',  label: 'Avionics Bus', detail: 'Reconnect the primary flight display and nav bus.' },
+    { id: 'fuel',      label: 'Fuel Feed',    detail: 'Seal the feed line and rebalance tank pressure.' },
+    { id: 'hydraulic', label: 'Hydraulics',   detail: 'Restore actuator pressure to the control surfaces.' },
+    { id: 'intake',    label: 'Intake Sweep', detail: 'Clear debris from the intake and compressor path.' },
+    { id: 'gear',      label: 'Landing Gear', detail: 'Reset the struts and wheel lock assemblies.' },
+    { id: 'wiring',    label: 'Wire Harness', detail: 'Reconnect the damaged wiring loom and relays.' },
+  ];
+  const CONTROL_ACTIONS = [
+    { id: 'pitchUp', label: 'Pitch Up' },
+    { id: 'pitchDown', label: 'Pitch Down' },
+    { id: 'rollLeft', label: 'Roll Left' },
+    { id: 'rollRight', label: 'Roll Right' },
+    { id: 'yawLeft', label: 'Yaw Left' },
+    { id: 'yawRight', label: 'Yaw Right' },
+    { id: 'aimUp', label: 'Aim Up' },
+    { id: 'aimDown', label: 'Aim Down' },
+    { id: 'aimLeft', label: 'Aim Left' },
+    { id: 'aimRight', label: 'Aim Right' },
+    { id: 'throttleUp', label: 'Throttle Up' },
+    { id: 'throttleDown', label: 'Throttle Down' },
+    { id: 'boost', label: 'Boost' },
+    { id: 'shoot', label: 'Fire Gun' },
+    { id: 'reload', label: 'Reload Gun' },
+    { id: 'aimModeToggle', label: 'Gun Aim Mode' },
+    { id: 'trick', label: 'Random Trick' },
+    { id: 'assistToggle', label: 'Stability Assist' },
+    { id: 'brake', label: 'Brake' },
+    { id: 'cameraToggle', label: 'Camera Cycle' },
+    { id: 'guidanceToggle', label: 'Landing Laser' },
+    { id: 'mouseToggle', label: 'Mouse Steer' },
+    { id: 'helpToggle', label: 'HUD Help' },
+    { id: 'pause', label: 'Pause' },
+  ];
+  let pendingControlBinding = null;
+  let customPlaneAssetUrl = null;
+  let customPlaneFile = null;
+  let customPlaneDraft = loadCustomPlaneDraft();
+  const onlineRaceDraft = {
+    roomCode: '',
+    roomName: 'Private Flight',
+    roomSession: null,
+    rules: {
+      speedMultiplier: 1,
+      physicsPreset: 'sim',
+      autoLandAllowed: false,
+    },
+  };
+  const garageSelection = { type: 'prop' };
+  const garagePreview = {
+    renderer: null,
+    scene: null,
+    camera: null,
+    planeRoot: null,
+    scanRing: null,
+    serviceLights: [],
+    animationHandle: 0,
+    lastType: null,
+    repairUntil: 0,
+  };
+
+  const sel = {
+    aircraft: 'prop',
+    env:      'mountains',
+    mode:     'free_fly',
+    practiceRankIndex: 0,
+  };
+  let activityState = normalizeActivityState();
+
+  let splashToken = 0;
+  let splashPinToken = 0;
+  const splashRuns = new Map();
+  function setSplashProgress(progress = 0, status = 'Loading flight systems') {
+    const fill = document.getElementById('splash-progress-fill');
+    const label = document.getElementById('splash-status');
+    if (fill) fill.style.width = `${Math.round(Math.max(0, Math.min(1, progress)) * 100)}%`;
+    if (label) label.textContent = status;
+  }
+
+  function showSplash(status = 'Loading flight systems', progress = 0.08, options = {}) {
+    splashToken += 1;
+    splashRuns.set(splashToken, {
+      startedAt: performance.now(),
+      minDuration: Math.max(0, Number(options.minDuration) || 0),
+    });
+    if (options.pin) splashPinToken = splashToken;
+    const splash = document.getElementById('screen-splash');
+    if (splash) {
+      splash.style.display = 'flex';
+      splash.style.opacity = '1';
+    }
+    setSplashProgress(progress, status);
+    return splashToken;
+  }
+
+  function hideSplash(token = splashToken, delay = 180, force = false) {
+    const splash = document.getElementById('screen-splash');
+    if (!splash) return;
+    if (splashPinToken === token && !force) return;
+    const meta = splashRuns.get(token);
+    const elapsed = meta ? performance.now() - meta.startedAt : 0;
+    const minDelay = meta ? Math.max(0, meta.minDuration - elapsed) : 0;
+    if (splashPinToken === token) splashPinToken = 0;
+    window.setTimeout(() => {
+      if (token !== splashToken) return;
+      splash.style.opacity = '0';
+      window.setTimeout(() => {
+        if (token !== splashToken) return;
+        splash.style.display = 'none';
+        splashRuns.delete(token);
+      }, 320);
+    }, delay + minDelay);
+  }
+
+  function wait(ms) {
+    return new Promise(resolve => window.setTimeout(resolve, ms));
+  }
+
+  function isOnlineRaceMode(mode = sel.mode) {
+    return ONLINE_RACE_MODES.has(mode);
+  }
+
+  function currentOnlineQueue() {
+    if (sel.mode === 'race_online_ranked') return 'ranked';
+    if (sel.mode === 'race_online_private') return 'private';
+    return 'casual';
+  }
+
+  // ── Stars background ─────────────────────────────────────
+  (function initStars() {
+    const cv = document.getElementById('stars-canvas');
+    const ctx = cv.getContext('2d');
+    const resize = () => { cv.width = innerWidth; cv.height = innerHeight; };
+    resize(); window.addEventListener('resize', resize);
+    const stars = Array.from({ length: 220 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: 0.3 + Math.random() * 1.2, a: 0.2 + Math.random() * 0.8,
+    }));
+    (function draw() {
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      stars.forEach(s => {
+        ctx.beginPath();
+        ctx.arc(s.x * cv.width, s.y * cv.height, s.r, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(200,220,255,${s.a})`;
+        ctx.fill();
+      });
+    })();
+  })();
+
+  // ── Build selection UI ───────────────────────────────────
+  function buildSelectionUI() {
+    // Aircraft cards
+    const aircraftGrid = document.getElementById('tab-content-aircraft');
+    const aircraftCatalog = getAircraftCatalog();
+    const ownedPlanes = new Set(careerStore.getState().ownedPlanes);
+    aircraftGrid.innerHTML = Object.entries(aircraftCatalog).map(([key, cfg]) => {
+      const stats = cfg.stats;
+      const bar = (v) => `<div class="stat-bar"><div class="stat-fill" style="width:${v*20}%"></div></div>`;
+      const owned = key === 'custom_upload' || ownedPlanes.has(key);
+      return `
+        <div class="sel-card ${key === sel.aircraft ? 'active' : ''}" id="ac-${key}" onclick="App.selectAircraft('${key}')">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+            <div>
+              <div style="font-weight:700; font-size:14px; color:#e8f4fd;">${cfg.name}</div>
+              <div style="font-size:10px; color:#6688aa; letter-spacing:1px; text-transform:uppercase; margin-top:2px;">${cfg.type}</div>
+            </div>
+            <div style="font-size:10px; letter-spacing:1px; color:${owned ? '#7cf0d4' : '#ffd36a'};">${owned ? 'READY' : 'LICENSE NEEDED'}</div>
+          </div>
+          <div style="font-size:11px; color:#8899aa; margin-bottom:12px; line-height:1.4;">${cfg.description}</div>
+          <div style="display:grid; grid-template-columns:50px 1fr; gap:4px 8px; font-size:10px; color:#6688aa; align-items:center;">
+            <span>Speed</span>${bar(stats.speed)}
+            <span>Agility</span>${bar(stats.agility)}
+            <span>Stability</span>${bar(stats.stability)}
+          </div>
+        </div>`;
+    }).join('');
+
+    // Environment cards
+    const envGrid = document.getElementById('tab-content-env');
+    envGrid.innerHTML = Object.entries(ENVIRONMENTS).map(([key, cfg]) => `
+      <div class="sel-card ${key === sel.env ? 'active' : ''}" id="env-${key}" onclick="App.selectEnv('${key}')">
+        <div style="font-weight:700; font-size:14px; color:#e8f4fd; margin-bottom:4px;">${cfg.name}</div>
+        <div style="font-size:11px; color:#8899aa;">${cfg.description}</div>
+        ${cfg.hasBuildings ? `<div style="margin-top:8px; font-size:9px; color:#00e5ff; letter-spacing:1px;">🏙 CITY ENVIRONMENT</div>` : ''}
+      </div>
+    `).join('');
+
+    // Mode cards
+    const modeDiv = document.getElementById('tab-content-mode');
+    const modes = [
+      { key: 'free_fly', label: 'Free Flight', desc: 'Explore the world freely with no objectives. Perfect for sightseeing and practice.', icon: '🌐' },
+      { key: 'challenge', label: 'Challenge Mode', desc: 'Race through a course of rings against the clock. Score points for speed!', icon: '⏱' },
+      { key: 'race_practice', label: 'Race Practice', desc: 'Fly the dedicated air race circuit with AI competition but no career penalties.', icon: '🛫' },
+      { key: 'race_casual', label: 'Casual Race', desc: 'Earn money from five-plane races on the custom circuit and unlock better gear.', icon: '💸' },
+      { key: 'race_ranked', label: 'Ranked Race', desc: 'Climb the ladder against tougher bots. Top finishes build rank, poor results can drop you back.', icon: '🏁' },
+    ];
+    modeDiv.innerHTML = modes.map(m => `
+      <div class="sel-card ${m.key === sel.mode ? 'active' : ''}" id="mode-${m.key}" onclick="App.selectMode('${m.key}')" style="padding:18px;">
+        <div style="display:flex; gap:14px; align-items:center;">
+          <div style="font-size:28px;">${m.icon}</div>
+          <div>
+            <div style="font-weight:700; font-size:15px; color:#e8f4fd; margin-bottom:4px;">${m.label}</div>
+            <div style="font-size:12px; color:#8899aa; line-height:1.5;">${m.desc}</div>
+          </div>
+        </div>
+      </div>
+    `).join('') + `
+      <div style="margin-top:10px; padding:16px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:10px;">PRACTICE BOT TIER</div>
+        <select id="practice-rank-select" class="theme-select" onchange="App.setPracticeRank(this.value)">
+          ${RACE.RANKS.map((rank, index) => `<option value="${index}" ${index === sel.practiceRankIndex ? 'selected' : ''}>${rank.name} Bots</option>`).join('')}
+        </select>
+        <div style="font-size:11px; color:#9fc7e7; margin-top:10px; line-height:1.5;">Practice mode lets you choose the exact rank bracket of the AI field.</div>
+      </div>
+    `;
+
+    const modeCards = [
+      { key: 'free_fly', label: 'Free Flight', desc: 'Explore the world freely with no objectives. Perfect for sightseeing and practice.', icon: '🌐' },
+      { key: 'challenge', label: 'Challenge Mode', desc: 'Race through a course of rings against the clock. Score points for speed!', icon: '⏱' },
+      { key: 'race_practice', label: 'Bot Practice', desc: 'Fly the race circuit with AI pilots. Great for learning the layout and testing planes.', icon: '🛫' },
+      { key: 'race_online_casual', label: 'Online Casual', desc: 'Quick-match into a live five-player race. Earn credits without risking rank.', icon: '💸' },
+      { key: 'race_online_ranked', label: 'Online Ranked', desc: 'Human-only competition. Strong finishes grow rank, bad ones can pull it down.', icon: '🏁' },
+      { key: 'race_online_private', label: 'Private Room', desc: 'Host or join a custom room with your own speed, physics, and autoland rules.', icon: '🛰️' },
+    ];
+    modeDiv.innerHTML = modeCards.map(m => `
+      <div class="sel-card ${m.key === sel.mode ? 'active' : ''}" id="mode-${m.key}" onclick="App.selectMode('${m.key}')" style="padding:18px;">
+        <div style="display:flex; gap:14px; align-items:center;">
+          <div style="font-size:28px;">${m.icon}</div>
+          <div>
+            <div style="font-weight:700; font-size:15px; color:#e8f4fd; margin-bottom:4px;">${m.label}</div>
+            <div style="font-size:12px; color:#8899aa; line-height:1.5;">${m.desc}</div>
+          </div>
+        </div>
+      </div>
+    `).join('');
+    if (sel.mode === 'race_practice') {
+      modeDiv.innerHTML += `
+        <div style="margin-top:10px; padding:16px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:10px;">PRACTICE BOT TIER</div>
+          <select id="practice-rank-select" class="theme-select" onchange="App.setPracticeRank(this.value)">
+            ${RACE.RANKS.map((rank, index) => `<option value="${index}" ${index === sel.practiceRankIndex ? 'selected' : ''}>${rank.name} Bots</option>`).join('')}
+          </select>
+          <div style="font-size:11px; color:#9fc7e7; margin-top:10px; line-height:1.5;">Practice mode lets you choose the exact rank bracket of the AI field.</div>
+        </div>
+      `;
+    }
+    if (isOnlineRaceMode()) {
+      const session = onlineRaceDraft.roomSession;
+      const privateRoom = sel.mode === 'race_online_private';
+      modeDiv.innerHTML += `
+        <div style="margin-top:10px; padding:16px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:12px;">${privateRoom ? 'PRIVATE ROOM CONTROL' : 'LIVE MATCHMAKING'}</div>
+          ${privateRoom ? `
+            <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px;">
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+                <span>Room Name</span>
+                <input type="text" value="${escHtml(onlineRaceDraft.roomName)}" oninput="App.setPrivateRoomField('roomName', this.value)" style="width:100%; padding:10px 12px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:8px; color:#dff4ff;" />
+              </label>
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+                <span>Room Code</span>
+                <input type="text" value="${escHtml(onlineRaceDraft.roomCode)}" oninput="App.setPrivateRoomField('roomCode', this.value.toUpperCase())" style="width:100%; padding:10px 12px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:8px; color:#dff4ff;" />
+              </label>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:12px;">
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+                <span>Speed Rule</span>
+                <select class="theme-select" onchange="App.setPrivateRule('speedMultiplier', Number(this.value))">
+                  ${[0.85, 1, 1.15, 1.3].map(value => `<option value="${value}" ${Number(onlineRaceDraft.rules.speedMultiplier) === value ? 'selected' : ''}>${Math.round(value * 100)}%</option>`).join('')}
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+                <span>Physics</span>
+                <select class="theme-select" onchange="App.setPrivateRule('physicsPreset', this.value)">
+                  ${['sim', 'sport', 'arcade'].map(value => `<option value="${value}" ${onlineRaceDraft.rules.physicsPreset === value ? 'selected' : ''}>${value.toUpperCase()}</option>`).join('')}
+                </select>
+              </label>
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+                <span>Autoland</span>
+                <select class="theme-select" onchange="App.setPrivateRule('autoLandAllowed', this.value === 'true')">
+                  <option value="false" ${!onlineRaceDraft.rules.autoLandAllowed ? 'selected' : ''}>OFF</option>
+                  <option value="true" ${onlineRaceDraft.rules.autoLandAllowed ? 'selected' : ''}>ON</option>
+                </select>
+              </label>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+              <button class="btn btn-primary" onclick="App.createPrivateRoom()" style="padding:9px 14px; font-size:11px;">Create Room</button>
+              <button class="btn btn-ghost" onclick="App.joinPrivateRoom()" style="padding:9px 14px; font-size:11px;">Join Code</button>
+              <button class="btn btn-ghost" onclick="App.clearPrivateRoom()" style="padding:9px 14px; font-size:11px;">Clear</button>
+            </div>
+          ` : `
+            <div style="font-size:11px; color:#9fc7e7; line-height:1.6; margin-bottom:12px;">
+              Launching will queue you into a live ${sel.mode === 'race_online_ranked' ? 'ranked' : 'casual'} room automatically. Ranked affects ladder progress. Casual pays credits without touching rank.
+            </div>
+          `}
+          <div style="font-size:11px; color:#dff4ff; line-height:1.6;">
+            ${session?.room?.id
+              ? `ACTIVE ROOM ${escHtml(session.room.code)} · ${escHtml(session.room.name)} · ${session.room.playerCount}/${session.room.maxPlayers} pilots`
+              : privateRoom
+                ? 'Create a room or join a code before launching.'
+                : 'Quick match session will be created when you launch.'}
+          </div>
+        </div>
+      `;
+    }
+
+    const customDiv = document.getElementById('tab-content-custom');
+    if (customDiv) {
+      customDiv.innerHTML = `
+        <div class="card" style="padding:18px; display:grid; grid-template-columns:1.05fr 0.95fr; gap:16px;">
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="font-size:11px; color:#8db8dd; letter-spacing:2px;">MODEL UPLOAD</div>
+            <label style="display:flex; flex-direction:column; gap:8px; font-size:12px; color:#dff4ff;">
+              <span>Aircraft Model (.glb / .gltf)</span>
+              <input type="file" accept=".glb,.gltf,model/gltf-binary,model/gltf+json" onchange="App.onCustomPlaneFile(event)" />
+            </label>
+            <div style="font-size:11px; color:#9fc7e7;">${customPlaneDraft.fileName ? `Loaded: ${escHtml(customPlaneDraft.fileName)}` : 'No model loaded yet. Upload one to unlock the custom slot.'}</div>
+            <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+              <span>Name</span>
+              <input type="text" value="${escHtml(customPlaneDraft.name || '')}" oninput="App.updateCustomPlaneField('name', this.value)" style="width:100%; padding:10px 12px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:8px; color:#dff4ff;" />
+            </label>
+            <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+              <span>Description</span>
+              <textarea oninput="App.updateCustomPlaneField('description', this.value)" style="width:100%; min-height:96px; padding:10px 12px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:8px; color:#dff4ff; resize:vertical;">${escHtml(customPlaneDraft.description || '')}</textarea>
+            </label>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="font-size:11px; color:#8db8dd; letter-spacing:2px;">FLIGHT PROFILE</div>
+            ${[
+              ['maxSpeed', 'Max Speed', 180, 720, 10],
+              ['stallSpeed', 'Stall Speed', 50, 220, 1],
+              ['targetLength', 'Aircraft Length', 8, 52, 1],
+              ['speed', 'Speed Stat', 1, 5, 1],
+              ['agility', 'Agility Stat', 1, 5, 1],
+              ['stability', 'Stability Stat', 1, 5, 1],
+            ].map(([field, label, min, max, step]) => `
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
+                <span>${label}: ${customPlaneDraft[field]}</span>
+                <input type="range" min="${min}" max="${max}" step="${step}" value="${customPlaneDraft[field]}" oninput="App.updateCustomPlaneField('${field}', this.value)" />
+              </label>
+            `).join('')}
+            <button class="btn btn-primary" onclick="App.prepareCustomPlane()" style="margin-top:6px;">Use In Free Flight</button>
+            <div style="font-size:11px; color:#9fc7e7; line-height:1.5;">Custom planes are available in Free Flight. Upload a model, tune the stats, then select it from the aircraft grid.</div>
+          </div>
+        </div>
+      `;
+    }
+
+    updateSummary();
+  }
+
+  function updateSummary() {
+    const ac = getAircraftCatalog()[sel.aircraft];
+    const env = ENVIRONMENTS[sel.env];
+    const summary = document.getElementById('setup-summary');
+    const modeLabel = ({
+      free_fly: 'Free Flight',
+      challenge: 'Challenge',
+      race_practice: 'Bot Practice',
+      race_online_casual: 'Online Casual',
+      race_online_ranked: 'Online Ranked',
+      race_online_private: 'Private Room',
+    })[sel.mode] ?? 'Free Flight';
+    if (summary) summary.textContent = `${ac?.name ?? ''} · ${env?.name ?? ''} · ${modeLabel}`;
+  }
+
+  // ── App controller ───────────────────────────────────────
+  function renderHangar() {
+    const career = careerStore.getState();
+    const fleet = careerStore.getAvailablePlanes().map(plane => {
+      const aircraft = AIRCRAFT[plane.type];
+      const condition = damageStore.getCondition(plane.type);
+      return {
+        type: plane.type,
+        name: plane.name,
+        owned: plane.owned,
+        cost: plane.cost,
+        condition,
+        status: condition >= 90 ? 'Ready' : condition >= 70 ? 'Service due' : condition >= 40 ? 'Worn' : 'Critical',
+        stats: aircraft?.stats ?? { speed: 0, agility: 0, stability: 0 },
+      };
+    });
+    if (!fleet.find(item => item.type === garageSelection.type)) {
+      garageSelection.type = fleet[0]?.type ?? 'prop';
+    }
+    const summary = document.getElementById('hangar-summary');
+    const avg = fleet.reduce((sum, item) => sum + item.condition, 0) / Math.max(fleet.length, 1);
+    if (summary) summary.textContent = `Fleet Average ${Math.round(avg)}% · ${career.ownedPlanes.length} Licensed · Free Flight ignores wear`;
+    const moneyEl = document.getElementById('garage-header-money');
+    if (moneyEl) moneyEl.textContent = `$${career.money.toLocaleString()} CREDITS`;
+
+    const selected = fleet.find(item => item.type === garageSelection.type) ?? fleet[0];
+    if (selected) {
+      const garageVisible = document.getElementById('screen-hangar')?.style.display !== 'none';
+      garageSelection.type = selected.type;
+      const repairCost = careerStore.getRepairCost(selected.type, selected.condition);
+      const title = document.getElementById('garage-selected-title');
+      const meta = document.getElementById('garage-selected-meta');
+      const actions = document.getElementById('garage-actions');
+      const caption = document.getElementById('garage-preview-caption');
+
+      if (title) title.textContent = selected.name;
+      if (caption) caption.textContent = `${selected.name} ready on the line`;
+      if (meta) {
+        meta.innerHTML = `
+          Condition <span style="color:${selected.condition >= 80 ? '#7cf0d4' : selected.condition >= 45 ? '#ffd36a' : '#ff7e90'};">${selected.condition}%</span><br/>
+          ${selected.owned ? 'Licensed for non-free modes' : 'License required for Challenge and Race modes'}<br/>
+          Stats SPD ${selected.stats.speed}/5 · AGI ${selected.stats.agility}/5 · STA ${selected.stats.stability}/5<br/>
+          Repair ${repairCost > 0 ? `$${repairCost.toLocaleString()}` : 'not needed'} · Free Flight launches at 100% health
+        `;
+      }
+      if (actions) {
+        actions.innerHTML = `
+          <button class="btn btn-primary" onclick="App.selectAircraft('${selected.type}'); App.showSelect()" style="padding:10px 16px; font-size:12px;">Mission Setup</button>
+          <button class="btn btn-ghost" onclick="App.openRepairBay('${selected.type}')" style="padding:10px 16px; font-size:12px;" ${selected.condition >= 100 ? 'disabled' : ''}>Repair Bay</button>
+          <button class="btn btn-ghost" onclick="App.quickRepairAircraft('${selected.type}')" style="padding:10px 16px; font-size:12px;" ${selected.condition >= 100 ? 'disabled' : ''}>Quick Repair</button>
+          <button class="btn btn-accent" onclick="App.repairAllAircraft()" style="padding:10px 16px; font-size:12px;">Repair All</button>
+          <button class="btn ${selected.owned ? 'btn-ghost' : 'btn-primary'}" onclick="App.${selected.owned ? `selectGaragePlane('${selected.type}')` : `buyPlane('${selected.type}')`}" style="padding:10px 16px; font-size:12px;">${selected.owned ? 'Licensed' : `Buy License ($${selected.cost.toLocaleString()})`}</button>
+        `;
+      }
+      if (garageVisible) updateGaragePreview(selected.type);
+    }
+
+    const gunGrid = document.getElementById('garage-gun-grid');
+    if (gunGrid) {
+      gunGrid.innerHTML = careerStore.getAvailableGuns().map(gun => `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
+          <div>
+            <div style="font-size:12px; color:#e8f4fd;">${gun.name}</div>
+            <div style="font-size:10px; color:#8aa6c3;">Stun ${gun.stun.toFixed(2)}s · ${gun.owned ? 'OWNED' : `$${gun.cost.toLocaleString()}`}</div>
+          </div>
+          <button class="btn ${(gun.equipped || gun.owned) ? 'btn-ghost' : 'btn-primary'}" onclick="App.${gun.owned ? `equipGun('${gun.id}')` : `buyGun('${gun.id}')`}" style="padding:8px 12px; font-size:11px;">
+            ${gun.equipped ? 'Equipped' : gun.owned ? 'Equip' : 'Buy'}
+          </button>
+        </div>
+      `).join('');
+    }
+
+    const grid = document.getElementById('hangar-grid');
+    if (!grid) return;
+    grid.innerHTML = fleet.map(item => {
+      const color = item.condition >= 80 ? '#00ff88' : item.condition >= 45 ? '#ffaa00' : '#ff5555';
+      const repairCost = careerStore.getRepairCost(item.type, item.condition);
+      return `
+        <div class="sel-card ${item.type === garageSelection.type ? 'active' : ''}" style="padding:16px;" onclick="App.selectGaragePlane('${item.type}')">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; margin-bottom:10px;">
+            <div>
+              <div style="font-size:14px; font-weight:700; color:#e8f4fd;">${item.name}</div>
+              <div style="font-size:10px; color:#6688aa; letter-spacing:1px; text-transform:uppercase; margin-top:3px;">${item.owned ? item.status : `UNLICENSED · $${item.cost.toLocaleString()}`}</div>
+            </div>
+            <div style="font-size:20px; font-weight:800; color:${color};">${item.condition}%</div>
+          </div>
+          <div style="height:8px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,0.08); margin-bottom:14px;">
+            <div style="height:100%; width:${item.condition}%; background:linear-gradient(90deg, ${color}, #dff7ff);"></div>
+          </div>
+          <div style="font-size:11px; color:#9fc7e7; margin-bottom:12px;">Repair Cost: ${repairCost > 0 ? `$${repairCost.toLocaleString()}` : 'None'} · AGI ${item.stats.agility}/5</div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn btn-ghost" onclick="event.stopPropagation(); App.openRepairBay('${item.type}')" style="flex:1; padding:10px 12px; font-size:12px;" ${item.condition >= 100 ? 'disabled' : ''}>Repair</button>
+            <button class="btn ${item.owned ? 'btn-primary' : 'btn-accent'}" onclick="event.stopPropagation(); App.${item.owned ? `selectAircraft('${item.type}'); App.showSelect();` : `buyPlane('${item.type}')`}" style="flex:1; padding:10px 12px; font-size:12px;">${item.owned ? 'Fly' : 'Buy'}</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function getRepairTasks(type) {
+    const condition = damageStore.getCondition(type);
+    const steps = condition < 40 ? 4 : condition < 75 ? 3 : 2;
+    const seedBase = `${type}:${condition}`;
+    const tasks = [];
+
+    for (let i = 0; i < REPAIR_TASK_POOL.length && tasks.length < steps; i++) {
+      const seedIndex = (seedBase.charCodeAt(i % seedBase.length) + i * 3) % REPAIR_TASK_POOL.length;
+      const task = REPAIR_TASK_POOL[seedIndex];
+      if (!tasks.find(entry => entry.id === task.id)) tasks.push(task);
+    }
+
+    for (const task of REPAIR_TASK_POOL) {
+      if (tasks.length >= steps) break;
+      if (!tasks.find(entry => entry.id === task.id)) tasks.push(task);
+    }
+
+    return tasks;
+  }
+
+  function renderRepairBay() {
+    const modal = document.getElementById('repair-bay-modal');
+    if (!modal || !repairBay.type) return;
+
+    const cfg = AIRCRAFT[repairBay.type];
+    const condition = damageStore.getCondition(repairBay.type);
+    const aircraftEl = document.getElementById('repair-bay-aircraft');
+    const conditionEl = document.getElementById('repair-bay-condition');
+    const grid = document.getElementById('repair-bay-grid');
+    const status = document.getElementById('repair-bay-status');
+
+    if (aircraftEl) aircraftEl.textContent = cfg?.name ?? repairBay.type;
+    if (conditionEl) {
+      conditionEl.textContent = `Condition ${condition}% | Complete ${repairBay.tasks.length} repair task${repairBay.tasks.length === 1 ? '' : 's'} to fully restore this aircraft.`;
+    }
+
+    if (grid) {
+      grid.innerHTML = repairBay.tasks.map(task => {
+        const done = repairBay.completed.has(task.id);
+        return `
+          <button class="sel-card" onclick="App.repairStep('${task.id}')" ${done ? 'disabled' : ''} style="
+            text-align:left;
+            cursor:${done ? 'default' : 'pointer'};
+            border-color:${done ? 'rgba(0,255,136,0.35)' : 'rgba(255,255,255,0.08)'};
+            background:${done ? 'rgba(0,255,136,0.08)' : 'rgba(255,255,255,0.03)'};
+            opacity:${done ? '0.88' : '1'};
+            min-height:126px;
+          ">
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px;">
+              <div style="font-size:13px; font-weight:700; color:#e8f4fd;">${task.label}</div>
+              <div style="font-size:10px; letter-spacing:1px; color:${done ? '#00ff88' : '#00e5ff'};">${done ? 'ONLINE' : 'REPAIR'}</div>
+            </div>
+            <div style="font-size:11px; line-height:1.5; color:#90a8bd;">${task.detail}</div>
+          </button>
+        `;
+      }).join('');
+    }
+
+    if (status) {
+      const remaining = repairBay.tasks.length - repairBay.completed.size;
+      status.textContent = remaining > 0
+        ? `${remaining} task${remaining === 1 ? '' : 's'} remaining`
+        : 'Repair complete. Aircraft restored to operational condition.';
+    }
+
+    modal.style.display = 'flex';
+  }
+
+  function formatKeyLabel(code) {
+    if (!code) return 'UNBOUND';
+    return code
+      .replace(/^Key/, '')
+      .replace(/^Digit/, '')
+      .replace(/^Arrow/, '')
+      .replace(/^Shift(Left|Right)$/, 'SHIFT')
+      .replace(/^Control(Left|Right)$/, 'CTRL')
+      .replace(/^Escape$/, 'ESC')
+      .replace(/^Space$/, 'SPACE')
+      .toUpperCase();
+  }
+
+  function renderControlsPanel(listId = 'controls-list', hintId = 'controls-rebind-hint') {
+    const list = document.getElementById(listId);
+    const hint = document.getElementById(hintId);
+    if (!list || !hint) return;
+
+    const bindings = getActiveBindings();
+    hint.textContent = pendingControlBinding
+      ? `Press a key for ${CONTROL_ACTIONS.find(action => action.id === pendingControlBinding)?.label ?? pendingControlBinding}. Press ESC to cancel.`
+      : 'Click a binding, then press a key to remap it.';
+
+    list.innerHTML = CONTROL_ACTIONS.map(action => `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:8px; padding:8px 10px;">
+        <div style="font-size:11px; color:#ddd4c7;">${action.label}</div>
+        <button class="btn ${pendingControlBinding === action.id ? 'btn-primary' : 'btn-ghost'}" onclick="App.startRebind('${action.id}')" style="padding:6px 10px; font-size:10px; min-width:76px;">
+          ${formatKeyLabel(bindings[action.id]?.[0])}
+        </button>
+      </div>
+    `).join('');
+  }
+
+  function loadAppSettings() {
+    try {
+      const raw = localStorage.getItem(APP_SETTINGS_KEY);
+      if (!raw) return { ...DEFAULT_APP_SETTINGS };
+      const parsed = { ...DEFAULT_APP_SETTINGS, ...JSON.parse(raw) };
+      if (parsed.quality === 'auto') parsed.quality = 'balanced';
+      return parsed;
+    } catch {
+      return { ...DEFAULT_APP_SETTINGS };
+    }
+  }
+
+  function saveAppSettings() {
+    try {
+      localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(appSettings));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  function loadAuthState() {
+    try {
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!raw) return { token: null, user: null, syncedAt: null };
+      const parsed = JSON.parse(raw);
+      return {
+        token: parsed?.token || null,
+        user: parsed?.user || null,
+        syncedAt: parsed?.syncedAt || null,
+      };
+    } catch {
+      return { token: null, user: null, syncedAt: null };
+    }
+  }
+
+  function saveAuthState() {
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authState));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  function loadCustomPlaneDraft() {
+    try {
+      const raw = localStorage.getItem(CUSTOM_PLANE_STORAGE_KEY);
+      if (!raw) {
+        return {
+          name: 'Custom Prototype',
+          description: 'Upload a GLB or GLTF aircraft and tune its flight profile for free flight.',
+          speed: 3,
+          agility: 3,
+          stability: 3,
+          maxSpeed: 280,
+          stallSpeed: 82,
+          startAltitude: 260,
+          startSpeed: 110,
+          targetLength: 18,
+          color: '#87cfff',
+          accentColor: '#ffffff',
+          ready: false,
+        };
+      }
+      return {
+        ...JSON.parse(raw),
+        ready: false,
+      };
+    } catch {
+      return {
+        name: 'Custom Prototype',
+        description: 'Upload a GLB or GLTF aircraft and tune its flight profile for free flight.',
+        speed: 3,
+        agility: 3,
+        stability: 3,
+        maxSpeed: 280,
+        stallSpeed: 82,
+        startAltitude: 260,
+        startSpeed: 110,
+        targetLength: 18,
+        color: '#87cfff',
+        accentColor: '#ffffff',
+        ready: false,
+      };
+    }
+  }
+
+  function saveCustomPlaneDraft() {
+    try {
+      const { ready, fileName, ...persisted } = customPlaneDraft;
+      localStorage.setItem(CUSTOM_PLANE_STORAGE_KEY, JSON.stringify(persisted));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  function getAuthHeaders(includeJson = true) {
+    const headers = {};
+    if (includeJson) headers['Content-Type'] = 'application/json';
+    if (authState?.token) headers.Authorization = `Bearer ${authState.token}`;
+    return headers;
+  }
+
+  function buildProfilePayload() {
+    return {
+      career: careerStore.exportState?.() ?? careerStore.getState?.(),
+      damage: damageStore.exportState?.() ?? null,
+      settings: { ...appSettings },
+      controls: getStoredBindings(),
+      activity: {
+        ...activityState,
+        selectedAircraft: sel.aircraft,
+        selectedEnvironment: sel.env,
+        selectedMode: sel.mode,
+        practiceRankIndex: sel.practiceRankIndex,
+      },
+      customPlane: {
+        ...customPlaneDraft,
+        ready: false,
+        fileName: customPlaneDraft.fileName ?? null,
+      },
+    };
+  }
+
+  function applyRemoteProfile(profile = {}) {
+    if (profile.career) careerStore.hydrate?.(profile.career);
+    if (profile.damage) damageStore.hydrate?.(profile.damage);
+    if (profile.activity) {
+      activityState = normalizeActivityState(profile.activity);
+      sel.aircraft = getAircraftCatalog()[activityState.selectedAircraft] ? activityState.selectedAircraft : 'prop';
+      sel.env = ENVIRONMENTS[activityState.selectedEnvironment] ? activityState.selectedEnvironment : 'mountains';
+      sel.mode = ['free_fly', 'challenge', 'race_practice', 'race_online_casual', 'race_online_ranked', 'race_online_private'].includes(activityState.selectedMode)
+        ? activityState.selectedMode
+        : 'free_fly';
+      sel.practiceRankIndex = Number.isFinite(Number(activityState.practiceRankIndex))
+        ? Number(activityState.practiceRankIndex)
+        : 0;
+    }
+    if (profile.settings) {
+      Object.assign(appSettings, DEFAULT_APP_SETTINGS, profile.settings);
+      saveAppSettings();
+    }
+    if (profile.controls) {
+      saveStoredBindings(profile.controls);
+      if (engine) {
+        Object.entries(profile.controls).forEach(([action, bindings]) => {
+          if (Array.isArray(bindings) && bindings[0]) engine.setControlBinding?.(action, bindings[0]);
+        });
+      }
+    }
+    if (profile.customPlane && typeof profile.customPlane === 'object') {
+      customPlaneDraft = {
+        ...loadCustomPlaneDraft(),
+        ...profile.customPlane,
+        ready: !!customPlaneFile,
+      };
+      saveCustomPlaneDraft();
+    }
+    renderSettingsScreen();
+    renderHangar();
+    renderCareerScreen();
+    if (document.getElementById('screen-select')?.style.display !== 'none') buildSelectionUI();
+  }
+
+  function renderPlayerIdentity() {
+    const idEl = document.getElementById('settings-player-id');
+    const roleEl = document.getElementById('settings-player-role');
+    const statusEl = document.getElementById('settings-player-status');
+    const statsEl = document.getElementById('settings-player-stats');
+    const signedIn = !!authState?.token && !!authState?.user;
+    const user = authState?.user ?? null;
+    if (idEl) idEl.textContent = signedIn ? `PLAYER ID ${user.playerId ?? user.id ?? 'UNKNOWN'}` : 'ID unavailable';
+    if (roleEl) roleEl.textContent = signedIn ? String(user.role ?? 'player').toUpperCase() : 'GUEST';
+    if (statusEl) {
+      if (!signedIn) {
+        statusEl.textContent = 'Sign in to access your player record.';
+      } else if (user.status?.banned) {
+        statusEl.textContent = `Status: BANNED${user.status?.banReason ? ` · ${user.status.banReason}` : ''}`;
+      } else {
+        statusEl.textContent = `Status: ACTIVE · Created ${new Date(user.createdAt ?? Date.now()).toLocaleDateString()} · Storage ${String(user.status?.currentStorage ?? 'local').toUpperCase()}`;
+      }
+    }
+    if (statsEl) {
+      if (!signedIn) {
+        statsEl.innerHTML = '';
+      } else {
+        const stats = user.stats ?? {};
+        const statCard = (label, value) => `
+          <div style="padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:10px; color:#8db8dd; letter-spacing:1.6px; margin-bottom:4px;">${label}</div>
+            <div style="font-size:15px; color:#e8f4fd; font-weight:700;">${value}</div>
+          </div>
+        `;
+        statsEl.innerHTML = [
+          statCard('Launches', stats.launches ?? 0),
+          statCard('Landings', stats.landings ?? 0),
+          statCard('Crashes', stats.crashes ?? 0),
+          statCard('Money', `$${Number(stats.money ?? 0).toLocaleString()}`),
+        ].join('');
+      }
+    }
+  }
+
+  function renderAdminPanel() {
+    const panel = document.getElementById('settings-dev-panel');
+    const status = document.getElementById('settings-dev-status');
+    const list = document.getElementById('settings-dev-users');
+    const isDev = !!authState?.user && (authState.user.role === 'dev');
+    if (!panel || !status || !list) return;
+    panel.style.display = isDev ? 'block' : 'none';
+    if (!isDev) return;
+    if (adminConsole.loading) {
+      status.textContent = 'Loading player roster...';
+      list.innerHTML = '';
+      return;
+    }
+    status.textContent = adminConsole.error
+      ? adminConsole.error
+      : `${adminConsole.users.length} player record${adminConsole.users.length === 1 ? '' : 's'} available.`;
+    list.innerHTML = adminConsole.users.map(user => {
+      const isCurrent = user.id === authState?.user?.id;
+      const banned = !!user.status?.banned;
+      const banLabel = banned ? 'Unban' : 'Ban';
+      const banColor = banned ? 'btn-accent' : 'btn-ghost';
+      return `
+        <div style="padding:12px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+            <div>
+              <div style="font-size:13px; color:#e8f4fd; font-weight:700;">${escHtml(user.username)}${isCurrent ? ' · YOU' : ''}</div>
+              <div style="font:10px 'JetBrains Mono', monospace; color:#8db8dd; letter-spacing:1.4px; margin-top:4px;">${escHtml(user.playerId ?? user.id ?? '')}</div>
+              <div style="font-size:11px; color:#9fc7e7; margin-top:6px; line-height:1.5;">
+                ${banned ? `BANNED${user.status?.banReason ? ` · ${escHtml(user.status.banReason)}` : ''}` : 'ACTIVE'}
+                · ${String(user.role ?? 'player').toUpperCase()}
+                · $${Number(user.stats?.money ?? 0).toLocaleString()}
+                · ${Number(user.stats?.launches ?? 0)} launches
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button class="btn ${banColor}" onclick="App.togglePlayerBan('${user.id}', ${banned ? 'false' : 'true'})" style="padding:8px 12px; font-size:11px;">${banLabel}</button>
+              <button class="btn btn-primary" onclick="App.impersonatePlayer('${user.id}')" style="padding:8px 12px; font-size:11px;">Play As</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  async function loadAdminUsers(showToast = false) {
+    const isDev = !!authState?.user && authState.user.role === 'dev';
+    adminConsole = { ...adminConsole, error: '', users: isDev ? adminConsole.users : [], loading: isDev };
+    renderAdminPanel();
+    if (!isDev || !authState?.token) return false;
+    try {
+      const resp = await fetch(`${API_BASE}/admin/users`, {
+        headers: getAuthHeaders(false),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || 'Unable to load player roster');
+      adminConsole = {
+        loading: false,
+        error: '',
+        users: Array.isArray(data?.users) ? data.users : [],
+      };
+      renderAdminPanel();
+      if (showToast) toast('Developer roster updated', 1500);
+      return true;
+    } catch (error) {
+      adminConsole = {
+        loading: false,
+        error: error.message || 'Unable to load player roster',
+        users: [],
+      };
+      renderAdminPanel();
+      if (showToast) toast(adminConsole.error, 2200);
+      return false;
+    }
+  }
+
+  function renderAuthState() {
+    const menuStatus = document.getElementById('menu-account-status');
+    const authBadge = document.getElementById('settings-auth-badge');
+    const authStatus = document.getElementById('settings-auth-status');
+    const authScreenStatus = document.getElementById('auth-screen-status');
+    const usernameInput = document.getElementById('auth-username');
+    const passwordInput = document.getElementById('auth-password');
+    const entryUsername = document.getElementById('entry-username');
+    const entryPassword = document.getElementById('entry-password');
+    const signedIn = !!authState?.token && !!authState?.user;
+    const username = authState?.user?.username ?? 'Guest Pilot';
+    const syncText = authState?.syncedAt ? `Last sync ${new Date(authState.syncedAt).toLocaleString()}` : 'Local profile only';
+
+    if (menuStatus) {
+      menuStatus.textContent = signedIn
+        ? `Signed in as ${username} · ${syncText}`
+        : 'Not signed in · progress stays on this device only';
+    }
+    if (authBadge) authBadge.textContent = signedIn ? 'CONNECTED' : 'LOCAL ONLY';
+    if (authStatus) {
+      authStatus.textContent = signedIn
+        ? `Connected as ${username}. ${syncText}.`
+        : 'Sign in to sync ranks, money, repairs, and settings across devices.';
+    }
+    if (authScreenStatus) {
+      authScreenStatus.textContent = signedIn
+        ? `Signed in as ${username} · ${syncText}`
+        : 'Create a new pilot account or sign in to continue.';
+    }
+    if (usernameInput && signedIn) usernameInput.value = username;
+    if (passwordInput && signedIn) passwordInput.value = '';
+    if (entryUsername && signedIn) entryUsername.value = username;
+    if (entryPassword && signedIn) entryPassword.value = '';
+    renderPlayerIdentity();
+    renderAdminPanel();
+  }
+
+  function readAuthCredentials() {
+    const username = document.getElementById('entry-username')?.value?.trim()
+      || document.getElementById('auth-username')?.value?.trim()
+      || '';
+    const password = document.getElementById('entry-password')?.value
+      || document.getElementById('auth-password')?.value
+      || '';
+    return { username, password };
+  }
+
+  async function syncProfileNow(showToast = false) {
+    if (!authState?.token) {
+      if (showToast) toast('Sign in first to sync your profile', 1800);
+      return false;
+    }
+    try {
+      const resp = await fetch(`${API_BASE}/profile/sync`, {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: JSON.stringify(buildProfilePayload()),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || 'Sync failed');
+      authState.syncedAt = new Date().toISOString();
+      saveAuthState();
+      renderAuthState();
+      if (showToast) toast('Profile synced', 1600);
+      if (data?.profile) applyRemoteProfile(data.profile);
+      return true;
+    } catch (error) {
+      if (showToast) toast(error.message || 'Cannot sync profile', 2200);
+      return false;
+    }
+  }
+
+  function queueProfileSync(delay = 700) {
+    if (!authState?.token) return;
+    clearTimeout(profileSyncTimer);
+    profileSyncTimer = setTimeout(() => {
+      syncProfileNow(false);
+    }, delay);
+  }
+
+  function clearOnlineRoomSession() {
+    onlineRaceDraft.roomSession = null;
+  }
+
+  function getOnlineSpawnSlot(session) {
+    const index = session?.players?.findIndex?.(player => player.isSelf);
+    return index >= 0 ? index : 0;
+  }
+
+  async function prepareOnlineRaceSession() {
+    if (!isOnlineRaceMode()) return null;
+    if (!authState?.token) throw new Error('Sign in to access online races');
+
+    if (sel.mode === 'race_online_private') {
+      if (!onlineRaceDraft.roomSession?.room?.id) {
+        throw new Error('Create or join a private room first');
+      }
+      return onlineRaceDraft.roomSession;
+    }
+
+    const response = await fetch(`${API_BASE}/race/matchmaking/join`, {
+      method: 'POST',
+      headers: getAuthHeaders(true),
+      body: JSON.stringify({
+        mode: sel.mode === 'race_online_ranked' ? 'ranked' : 'casual',
+        aircraftType: sel.aircraft,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data?.error || 'Unable to join matchmaking');
+    onlineRaceDraft.roomSession = data;
+    return data;
+  }
+
+  function applySignedInSession(data) {
+    authState = {
+      token: data?.token ?? authState?.token ?? null,
+      user: data?.user ?? authState?.user ?? null,
+      syncedAt: new Date().toISOString(),
+    };
+    saveAuthState();
+    if (data?.profile) applyRemoteProfile(data.profile);
+    renderAuthState();
+  }
+
+  function getAircraftCatalog() {
+    const catalog = { ...AIRCRAFT };
+    if (customPlaneDraft?.ready) {
+      catalog.custom_upload = {
+        name: customPlaneDraft.name || 'Custom Plane',
+        type: 'custom',
+        description: customPlaneDraft.description || 'User imported aircraft for free flight.',
+        stats: {
+          speed: Number(customPlaneDraft.speed) || 3,
+          agility: Number(customPlaneDraft.agility) || 3,
+          stability: Number(customPlaneDraft.stability) || 3,
+        },
+        color: customPlaneDraft.color || '#87cfff',
+        accentColor: customPlaneDraft.accentColor || '#ffffff',
+        maxSpeed: Number(customPlaneDraft.maxSpeed) || 280,
+        stallSpeed: Number(customPlaneDraft.stallSpeed) || 82,
+        startAltitude: Number(customPlaneDraft.startAltitude) || 260,
+        startSpeed: Number(customPlaneDraft.startSpeed) || 110,
+      };
+    }
+    return catalog;
+  }
+
+  function buildCustomAircraftConfig() {
+    return {
+      name: customPlaneDraft.name || 'Custom Plane',
+      type: 'custom',
+      description: customPlaneDraft.description || 'User imported aircraft for free flight.',
+      color: customPlaneDraft.color || '#87cfff',
+      accentColor: customPlaneDraft.accentColor || '#ffffff',
+      stats: {
+        speed: Number(customPlaneDraft.speed) || 3,
+        agility: Number(customPlaneDraft.agility) || 3,
+        stability: Number(customPlaneDraft.stability) || 3,
+      },
+      maxSpeed: Number(customPlaneDraft.maxSpeed) || 280,
+      stallSpeed: Number(customPlaneDraft.stallSpeed) || 82,
+      startAltitude: Number(customPlaneDraft.startAltitude) || 260,
+      startSpeed: Number(customPlaneDraft.startSpeed) || 110,
+      wingArea: Math.max(18, (Number(customPlaneDraft.targetLength) || 18) * 1.45),
+      maxThrust: Math.max(18000, (Number(customPlaneDraft.maxSpeed) || 280) * 180),
+      mass: Math.max(2200, (Number(customPlaneDraft.targetLength) || 18) * 280),
+      rollRate: 1.1 + (Number(customPlaneDraft.agility) || 3) * 0.26,
+      pitchRate: 0.7 + (Number(customPlaneDraft.agility) || 3) * 0.18,
+      yawRate: 0.32 + (Number(customPlaneDraft.stability) || 3) * 0.09,
+      liftCoefficient: 0.9 + (Number(customPlaneDraft.stability) || 3) * 0.11,
+      dragCoefficient: 0.018 + Math.max(0, 6 - (Number(customPlaneDraft.speed) || 3)) * 0.002,
+    };
+  }
+
+  function ensureCustomAircraftDefinition() {
+    if (!customPlaneDraft.ready) return false;
+    AIRCRAFT.custom_upload = buildCustomAircraftConfig();
+    ASSET_SOURCES.aircraft.custom_upload = {
+      file: customPlaneAssetUrl,
+      fileObject: customPlaneFile,
+      targetLength: Number(customPlaneDraft.targetLength) || 18,
+      offsetY: 0,
+    };
+    return true;
+  }
+
+  function ensureGaragePreview() {
+    const canvas = document.getElementById('garage-preview-canvas');
+    if (!canvas) return null;
+    if (!garagePreview.renderer) {
+      garagePreview.renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: true,
+      });
+      garagePreview.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+      garagePreview.scene = new THREE.Scene();
+      garagePreview.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 600);
+
+      const hemi = new THREE.HemisphereLight(0xbde7ff, 0x20304a, 1.2);
+      const sun = new THREE.DirectionalLight(0xfff2db, 1.35);
+      sun.position.set(28, 42, 18);
+      garagePreview.scene.add(hemi, sun);
+
+      const runway = new THREE.Mesh(
+        new THREE.BoxGeometry(42, 0.8, 230),
+        new THREE.MeshStandardMaterial({ color: 0x2b3138, roughness: 0.9, metalness: 0.02 })
+      );
+      runway.position.set(0, -0.45, 0);
+      garagePreview.scene.add(runway);
+
+      const stripe = new THREE.Mesh(
+        new THREE.BoxGeometry(1.4, 0.02, 170),
+        new THREE.MeshBasicMaterial({ color: 0xf2f3ea })
+      );
+      stripe.position.set(0, 0.02, 0);
+      garagePreview.scene.add(stripe);
+
+      const shoulder = new THREE.Mesh(
+        new THREE.BoxGeometry(94, 0.26, 260),
+        new THREE.MeshStandardMaterial({ color: 0x736755, roughness: 0.98, metalness: 0.0 })
+      );
+      shoulder.position.set(0, -0.7, 0);
+      garagePreview.scene.add(shoulder);
+
+      garagePreview.scanRing = new THREE.Mesh(
+        new THREE.TorusGeometry(4.6, 0.14, 10, 48),
+        new THREE.MeshBasicMaterial({ color: 0x67d1ff, transparent: true, opacity: 0.0 })
+      );
+      garagePreview.scanRing.rotation.x = Math.PI / 2;
+      garagePreview.scene.add(garagePreview.scanRing);
+
+      garagePreview.serviceLights = Array.from({ length: 3 }, (_, index) => {
+        const light = new THREE.Mesh(
+          new THREE.SphereGeometry(0.2, 10, 10),
+          new THREE.MeshBasicMaterial({ color: index === 0 ? 0x62c8ff : index === 1 ? 0x7cf0d4 : 0xffd36a, transparent: true, opacity: 0 })
+        );
+        garagePreview.scene.add(light);
+        return light;
+      });
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.floor(rect.width));
+    const height = Math.max(1, Math.floor(rect.height));
+    garagePreview.renderer.setSize(width, height, false);
+    garagePreview.camera.aspect = width / height;
+    garagePreview.camera.updateProjectionMatrix();
+
+    if (!garagePreview.animationHandle) {
+      const tick = () => {
+        if (!garagePreview.renderer || !garagePreview.scene || !garagePreview.camera) {
+          garagePreview.animationHandle = 0;
+          return;
+        }
+
+        const now = performance.now();
+        if (garagePreview.planeRoot) {
+          garagePreview.planeRoot.rotation.y = Math.sin(now * 0.00022) * 0.24 + 0.18;
+          garagePreview.planeRoot.updateMatrixWorld(true);
+          const bounds = new THREE.Box3().setFromObject(garagePreview.planeRoot);
+          if (!bounds.isEmpty()) {
+            const size = bounds.getSize(new THREE.Vector3());
+            const center = bounds.getCenter(new THREE.Vector3());
+            const radius = Math.max(6, size.length() * 0.28);
+            garagePreview.camera.position.set(center.x + radius * 1.55, center.y + radius * 0.62 + 3.4, center.z + radius * 2.35);
+            garagePreview.camera.lookAt(center.x, center.y + radius * 0.18, center.z);
+
+            const repairing = garagePreview.repairUntil > now;
+            garagePreview.scanRing.visible = repairing;
+            garagePreview.scanRing.position.set(center.x, center.y + 1.1 + Math.sin(now * 0.004) * 0.6, center.z);
+            garagePreview.scanRing.scale.setScalar(1 + Math.sin(now * 0.006) * 0.08);
+            garagePreview.scanRing.material.opacity = repairing ? 0.45 : 0;
+
+            garagePreview.serviceLights.forEach((light, index) => {
+              const angle = now * 0.0012 + index * (Math.PI * 2 / garagePreview.serviceLights.length);
+              light.visible = repairing;
+              light.position.set(
+                center.x + Math.cos(angle) * (radius * 0.95),
+                center.y + 0.8 + Math.sin(now * 0.003 + index) * 0.5,
+                center.z + Math.sin(angle) * (radius * 0.7)
+              );
+              light.material.opacity = repairing ? 0.92 : 0;
+            });
+          }
+        }
+
+        garagePreview.renderer.render(garagePreview.scene, garagePreview.camera);
+        garagePreview.animationHandle = requestAnimationFrame(tick);
+      };
+      garagePreview.animationHandle = requestAnimationFrame(tick);
+    }
+
+    return garagePreview;
+  }
+
+  function fitGaragePreviewPlane(preview) {
+    if (!preview?.planeRoot) return;
+    preview.planeRoot.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(preview.planeRoot);
+    if (bounds.isEmpty()) return;
+
+    const center = bounds.getCenter(new THREE.Vector3());
+    preview.planeRoot.position.x += -center.x;
+    preview.planeRoot.position.z += 18 - center.z;
+    preview.planeRoot.position.y += 0.18 - bounds.min.y;
+    preview.planeRoot.updateMatrixWorld(true);
+  }
+
+  function updateGaragePreview(type) {
+    const preview = ensureGaragePreview();
+    if (!preview) return;
+    const effectiveType = type === 'custom_upload' && !ensureCustomAircraftDefinition() ? 'jet' : type;
+    const previewKey = effectiveType === 'custom_upload'
+      ? `${effectiveType}:${customPlaneDraft.fileName ?? 'session'}`
+      : effectiveType;
+    if (preview.lastType === previewKey && preview.planeRoot) return;
+    preview.lastType = previewKey;
+
+    if (preview.planeRoot) {
+      preview.scene.remove(preview.planeRoot);
+      preview.planeRoot.traverse?.(node => {
+        if (!node.isMesh) return;
+        node.geometry?.dispose?.();
+        if (Array.isArray(node.material)) node.material.forEach(material => material.dispose?.());
+        else node.material?.dispose?.();
+      });
+      preview.planeRoot = null;
+    }
+
+    preview.planeRoot = AircraftModels.create(effectiveType);
+    preview.planeRoot.position.set(0, 0, 18);
+    preview.planeRoot.userData.onHydrated = () => fitGaragePreviewPlane(preview);
+    preview.scene.add(preview.planeRoot);
+    fitGaragePreviewPlane(preview);
+  }
+
+  function triggerGarageRepairAnimation() {
+    garagePreview.repairUntil = performance.now() + 2200;
+    const caption = document.getElementById('garage-preview-caption');
+    if (caption) caption.textContent = 'Repair crew active';
+    setTimeout(() => {
+      if (garagePreview.repairUntil <= performance.now()) {
+        const label = AIRCRAFT[garageSelection.type]?.name ?? garageSelection.type ?? 'Aircraft';
+        const nextCaption = document.getElementById('garage-preview-caption');
+        if (nextCaption) nextCaption.textContent = `${label} ready on the line`;
+      }
+    }, 2300);
+  }
+
+  function sanitizeBindings(bindings) {
+    const next = { ...JSON.parse(JSON.stringify(CONTROLS.keyboard)), ...(bindings ?? {}) };
+    const aimActions = new Set(['aimUp', 'aimDown', 'aimLeft', 'aimRight']);
+    const aimOnly = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+    const flightOnly = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE']);
+
+    Object.keys(next).forEach(action => {
+      const fallback = CONTROLS.keyboard[action]?.[0];
+      next[action] = (Array.isArray(next[action]) ? next[action] : [fallback]).map(code => {
+        if (aimActions.has(action) && flightOnly.has(code)) return fallback;
+        if (!aimActions.has(action) && aimOnly.has(code)) return fallback;
+        return code;
+      });
+    });
+
+    return next;
+  }
+
+  function getStoredBindings() {
+    try {
+      const raw = localStorage.getItem(CONTROL_STORAGE_KEY);
+      if (!raw) return sanitizeBindings(JSON.parse(JSON.stringify(CONTROLS.keyboard)));
+      return sanitizeBindings(JSON.parse(raw));
+    } catch {
+      return sanitizeBindings(JSON.parse(JSON.stringify(CONTROLS.keyboard)));
+    }
+  }
+
+  function saveStoredBindings(bindings) {
+    try {
+      localStorage.setItem(CONTROL_STORAGE_KEY, JSON.stringify(sanitizeBindings(bindings)));
+    } catch {
+      // Ignore storage failures.
+    }
+  }
+
+  function getActiveBindings() {
+    return engine?.getControlBindings?.() ?? getStoredBindings();
+  }
+
+  function renderSettingsScreen() {
+    const bind = (id, value) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!value;
+      else el.value = value;
+    };
+    bind('settings-bloom', appSettings.bloom);
+    bind('settings-contrail', appSettings.contrail);
+    bind('settings-shadows', appSettings.shadows);
+    bind('settings-weather', appSettings.weather);
+    bind('settings-quality', appSettings.quality);
+    bind('settings-fps-cap', appSettings.fpsCap);
+    bind('settings-advanced-ui', appSettings.advancedUi);
+    bind('settings-guidance', appSettings.guidanceEnabled);
+    bind('settings-autoland', appSettings.autoLandDefault);
+    bind('settings-gun-mode', appSettings.gunAimMode);
+    renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+    renderAuthState();
+    if (authState?.user?.role === 'dev' && !adminConsole.loading && adminConsole.users.length === 0 && !adminConsole.error) {
+      loadAdminUsers(false);
+    }
+  }
+
+  function renderCareerScreen() {
+    const career = careerStore.getState();
+    const moneyEl = document.getElementById('career-header-money');
+    const rankSummary = document.getElementById('career-rank-summary');
+    const history = document.getElementById('career-history');
+    const planeShop = document.getElementById('career-plane-shop');
+    const gunShop = document.getElementById('career-gun-shop');
+
+    if (moneyEl) moneyEl.textContent = `$${career.money.toLocaleString()} CREDITS`;
+    if (rankSummary) {
+      const progress = career.rankMaxed ? `${career.legendScore.toLocaleString()} LEGEND PTS` : `${Math.round(career.rankProgress)}%`;
+      rankSummary.innerHTML = `
+        <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">CURRENT RANK</div>
+        <div style="font-size:26px; font-weight:800; color:#e8f4fd; margin-bottom:6px;">${career.rankName}</div>
+        <div style="height:10px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,0.08); margin-bottom:10px;">
+          <div style="height:100%; width:${career.rankMaxed ? 100 : Math.max(0, Math.min(100, career.rankProgress))}%; background:linear-gradient(90deg,#53bfff,#7cf0d4);"></div>
+        </div>
+        <div style="font-size:13px; color:#b9d8f2;">${progress}</div>
+        <div style="font-size:11px; color:#8aa6c3; margin-top:6px;">${career.rankMaxed ? 'Legend tier unlocked. Online ranked wins now award leaderboard points.' : `Next Rank: ${career.nextRankName}`}</div>
+      `;
+    }
+    if (history) {
+      const entries = career.raceHistory.length ? career.raceHistory : [{ mode: 'race_online_ranked', place: '-', moneyDelta: 0, rankDelta: 0, legendScoreDelta: 0, at: new Date().toISOString() }];
+      history.innerHTML = entries.map(entry => `
+        <div style="display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
+          <div>
+            <div style="font-size:12px; color:#e8f4fd;">${entry.mode.replace(/_/g, ' ').toUpperCase()}</div>
+            <div style="font-size:10px; color:#8aa6c3;">PLACE ${entry.place}</div>
+          </div>
+          <div style="text-align:right; font-size:11px; color:#b9d8f2;">
+            <div>${entry.moneyDelta ? `${entry.moneyDelta > 0 ? '+' : ''}$${entry.moneyDelta}` : '$0'}</div>
+            <div>${entry.legendScoreDelta ? `${entry.legendScoreDelta > 0 ? '+' : ''}${entry.legendScoreDelta} pts` : `${entry.rankDelta > 0 ? '+' : ''}${entry.rankDelta}%`}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+    if (planeShop) {
+      planeShop.innerHTML = `
+        <div style="padding:12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#9fc7e7; font-size:12px; line-height:1.6;">
+          Plane licenses, repairs, and aircraft prep now live in the Garage screen.
+        </div>
+        <button class="btn btn-primary" onclick="App.showGarage()" style="margin-top:10px; padding:10px 14px; font-size:12px;">Open Garage</button>
+      `;
+    }
+    if (gunShop) {
+      gunShop.innerHTML = `
+        <div style="padding:12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); color:#9fc7e7; font-size:12px; line-height:1.6;">
+          Weapon loadouts are managed from the Garage so you can preview the aircraft and arm it in one place.
+        </div>
+        <button class="btn btn-primary" onclick="App.showGarage()" style="margin-top:10px; padding:10px 14px; font-size:12px;">Open Garage</button>
+      `;
+    }
+  }
+
+  window.App = {
+    showAuth() {
+      hideAll();
+      document.getElementById('screen-auth').style.display = 'flex';
+      document.getElementById('stars-canvas').style.display = 'block';
+      renderAuthState();
+      hideSplash();
+    },
+
+    showMenu() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      hideAll();
+      document.getElementById('screen-menu').style.display  = 'flex';
+      document.getElementById('stars-canvas').style.display = 'block';
+      renderAuthState();
+      hideSplash();
+    },
+
+    showSettings() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      hideAll();
+      document.getElementById('screen-settings').style.display = 'flex';
+      document.getElementById('stars-canvas').style.display = 'block';
+      renderSettingsScreen();
+      hideSplash();
+    },
+
+    showCareer() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      hideAll();
+      document.getElementById('screen-career').style.display = 'flex';
+      document.getElementById('stars-canvas').style.display = 'block';
+      renderCareerScreen();
+      hideSplash();
+    },
+
+    showGarage() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      hideAll();
+      document.getElementById('screen-hangar').style.display = 'flex';
+      document.getElementById('stars-canvas').style.display  = 'block';
+      renderHangar();
+      ensureGaragePreview();
+      hideSplash();
+    },
+
+    showHangar() {
+      this.showGarage();
+    },
+
+    showSelect() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      hideAll();
+      document.getElementById('screen-select').style.display = 'flex';
+      document.getElementById('stars-canvas').style.display  = 'block';
+      buildSelectionUI();
+      this.switchTab('aircraft');
+      hideSplash();
+    },
+
+    showLeaderboard() {
+      hideAll();
+      document.getElementById('screen-leaderboard').style.display = 'flex';
+      document.getElementById('stars-canvas').style.display       = 'block';
+      this.loadLeaderboard();
+      hideSplash();
+    },
+
+    async resumeSession() {
+      if (!authState?.token) {
+        this.showAuth();
+        return false;
+      }
+      try {
+        const resp = await fetch(`${API_BASE}/auth/me`, {
+          headers: getAuthHeaders(false),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Session expired');
+        authState.user = data.user;
+        authState.syncedAt = new Date().toISOString();
+        saveAuthState();
+        if (data?.profile) applyRemoteProfile(data.profile);
+        await loadAdminUsers(false);
+        this.showMenu();
+        renderAuthState();
+        return true;
+      } catch (error) {
+        authState = { token: null, user: null, syncedAt: null };
+        adminConsole = { loading: false, error: '', users: [] };
+        saveAuthState();
+        this.showAuth();
+        return false;
+      }
+    },
+
+    async signIn() {
+      const { username, password } = readAuthCredentials();
+      if (!username || !password) {
+        toast('Enter a username and password', 1800);
+        return;
+      }
+      const splashRun = showSplash('Signing in pilot profile', 0.24, { minDuration: 2600 });
+      try {
+        const resp = await fetch(`${API_BASE}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Sign in failed');
+        setSplashProgress(0.72, 'Syncing pilot profile');
+        applySignedInSession(data);
+        await syncProfileNow(false);
+        await loadAdminUsers(false);
+        this.showMenu();
+        hideSplash(splashRun, 260);
+        toast(`Signed in as ${data.user.username}`, 1800);
+      } catch (error) {
+        hideSplash(splashRun, 120);
+        toast(error.message || 'Cannot sign in', 2200);
+      }
+    },
+
+    async signUp() {
+      const { username, password } = readAuthCredentials();
+      if (!username || !password) {
+        toast('Enter a username and password', 1800);
+        return;
+      }
+      const splashRun = showSplash('Creating pilot account', 0.2, { minDuration: 2800 });
+      try {
+        const resp = await fetch(`${API_BASE}/auth/signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Account creation failed');
+        setSplashProgress(0.74, 'Provisioning hangar and profile');
+        applySignedInSession(data);
+        await syncProfileNow(false);
+        await loadAdminUsers(false);
+        this.showMenu();
+        hideSplash(splashRun, 260);
+        toast(`Account ready for ${data.user.username}`, 1800);
+      } catch (error) {
+        hideSplash(splashRun, 120);
+        toast(error.message || 'Cannot create account', 2200);
+      }
+    },
+
+    async signOut() {
+      if (authState?.token) {
+        try {
+          await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: getAuthHeaders(false),
+          });
+        } catch {
+          // Ignore logout transport failures.
+        }
+      }
+      authState = { token: null, user: null, syncedAt: null };
+      clearOnlineRoomSession();
+      saveAuthState();
+      adminConsole = { loading: false, error: '', users: [] };
+      this.showAuth();
+      toast('Signed out', 1600);
+    },
+
+    async syncProfile(showToast = false) {
+      return syncProfileNow(showToast);
+    },
+
+    async refreshAdminUsers() {
+      return loadAdminUsers(true);
+    },
+
+    async togglePlayerBan(userId, shouldBan) {
+      if (!authState?.token || authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      const reason = shouldBan ? (window.prompt('Ban reason', 'Manual moderation') || '').trim() : '';
+      try {
+        const resp = await fetch(`${API_BASE}/admin/users/${userId}/ban`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            banned: !!shouldBan,
+            reason,
+          }),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Unable to update player status');
+        await loadAdminUsers(false);
+        toast(shouldBan ? 'Player banned' : 'Player restored', 1800);
+      } catch (error) {
+        toast(error.message || 'Unable to update player status', 2200);
+      }
+    },
+
+    async impersonatePlayer(userId) {
+      if (!authState?.token || authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      try {
+        const resp = await fetch(`${API_BASE}/admin/users/${userId}/impersonate`, {
+          method: 'POST',
+          headers: getAuthHeaders(false),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Unable to switch pilot');
+        applySignedInSession(data);
+        if (data?.profile) applyRemoteProfile(data.profile);
+        await loadAdminUsers(false);
+        renderSettingsScreen();
+        toast(`Now piloting as ${data?.user?.username ?? 'player'}`, 2000);
+      } catch (error) {
+        toast(error.message || 'Unable to switch pilot', 2200);
+      }
+    },
+
+    devGrantCredits() {
+      if (authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      const next = careerStore.exportState();
+      next.money = Number(next.money ?? 0) + 50000;
+      careerStore.hydrate(next);
+      renderCareerScreen();
+      renderHangar();
+      queueProfileSync();
+      toast('Developer credit grant applied', 1800);
+    },
+
+    devUnlockFleet() {
+      if (authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      const next = careerStore.exportState();
+      next.ownedPlanes = Object.keys(AIRCRAFT).filter(type => !type.startsWith('custom'));
+      next.ownedGuns = Object.keys(RACE.GUNS);
+      if (!next.equippedGun || !next.ownedGuns.includes(next.equippedGun)) next.equippedGun = next.ownedGuns[0];
+      careerStore.hydrate(next);
+      renderCareerScreen();
+      renderHangar();
+      queueProfileSync();
+      toast('Developer fleet unlock applied', 1800);
+    },
+
+    devRepairFleet() {
+      if (authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      damageStore.repairAll();
+      renderHangar();
+      queueProfileSync();
+      toast('Developer repair sweep complete', 1800);
+    },
+
+    switchTab(tab) {
+      ['aircraft','env','mode','custom'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+        const el = document.getElementById(`tab-content-${t}`);
+        if (el) el.style.display = t === tab ? (t === 'mode' ? 'flex' : t === 'custom' ? 'block' : 'grid') : 'none';
+      });
+    },
+
+    selectAircraft(key) {
+      sel.aircraft = key;
+      activityState.selectedAircraft = key;
+      document.querySelectorAll('[id^="ac-"]').forEach(el => el.classList.remove('active'));
+      document.getElementById(`ac-${key}`)?.classList.add('active');
+      updateSummary();
+      queueProfileSync();
+    },
+
+    selectEnv(key) {
+      sel.env = key;
+      activityState.selectedEnvironment = key;
+      document.querySelectorAll('[id^="env-"]').forEach(el => el.classList.remove('active'));
+      document.getElementById(`env-${key}`)?.classList.add('active');
+      updateSummary();
+      queueProfileSync();
+    },
+
+    selectMode(key) {
+      const wasOnline = isOnlineRaceMode(sel.mode);
+      sel.mode = key;
+      if (sel.aircraft === 'custom_upload' && key !== 'free_fly') {
+        toast('Custom planes are limited to Free Flight', 2200);
+        sel.mode = 'free_fly';
+        key = 'free_fly';
+      }
+      if (key.startsWith('race_')) {
+        sel.env = 'air_race';
+        document.querySelectorAll('[id^="env-"]').forEach(el => el.classList.remove('active'));
+        document.getElementById('env-air_race')?.classList.add('active');
+      }
+      if (wasOnline && !isOnlineRaceMode(key)) clearOnlineRoomSession();
+      document.querySelectorAll('[id^="mode-"]').forEach(el => el.classList.remove('active'));
+      document.getElementById(`mode-${key}`)?.classList.add('active');
+      activityState.selectedMode = key;
+      if (document.getElementById('screen-select')?.style.display !== 'none') buildSelectionUI();
+      else updateSummary();
+      queueProfileSync();
+    },
+
+    setPracticeRank(value) {
+      sel.practiceRankIndex = Number(value) || 0;
+      activityState.practiceRankIndex = sel.practiceRankIndex;
+      updateSummary();
+      queueProfileSync();
+    },
+
+    setPrivateRoomField(field, value) {
+      onlineRaceDraft[field] = value;
+      buildSelectionUI();
+    },
+
+    setPrivateRule(field, value) {
+      onlineRaceDraft.rules[field] = value;
+      buildSelectionUI();
+    },
+
+    clearPrivateRoom() {
+      onlineRaceDraft.roomCode = '';
+      clearOnlineRoomSession();
+      buildSelectionUI();
+    },
+
+    async createPrivateRoom() {
+      if (!authState?.token) {
+        toast('Sign in to host private rooms', 2200);
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE}/race/private/create`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            aircraftType: sel.aircraft,
+            name: onlineRaceDraft.roomName,
+            rules: onlineRaceDraft.rules,
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Unable to create room');
+        onlineRaceDraft.roomSession = data;
+        onlineRaceDraft.roomCode = data.room.code;
+        buildSelectionUI();
+        toast(`Private room ${data.room.code} ready`, 1800);
+      } catch (error) {
+        toast(error.message || 'Unable to create room', 2200);
+      }
+    },
+
+    async joinPrivateRoom() {
+      if (!authState?.token) {
+        toast('Sign in to join private rooms', 2200);
+        return;
+      }
+      if (!onlineRaceDraft.roomCode.trim()) {
+        toast('Enter a room code first', 1800);
+        return;
+      }
+      try {
+        const response = await fetch(`${API_BASE}/race/private/join`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({
+            aircraftType: sel.aircraft,
+            code: onlineRaceDraft.roomCode.trim(),
+          }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.error || 'Unable to join room');
+        onlineRaceDraft.roomSession = data;
+        onlineRaceDraft.roomName = data.room.name;
+        onlineRaceDraft.rules = { ...onlineRaceDraft.rules, ...(data.room.rules ?? {}) };
+        buildSelectionUI();
+        toast(`Joined room ${data.room.code}`, 1800);
+      } catch (error) {
+        toast(error.message || 'Unable to join room', 2200);
+      }
+    },
+
+    async launchGame() {
+      let onlineSession = null;
+      let spawnSlot = 0;
+      if (sel.aircraft === 'custom_upload' && !customPlaneDraft.ready) {
+        toast('Upload a custom model first', 2200);
+        this.switchTab('custom');
+        return;
+      }
+      if (sel.aircraft === 'custom_upload' && !ensureCustomAircraftDefinition()) {
+        toast('Custom aircraft file is missing. Upload it again first.', 2200);
+        this.switchTab('custom');
+        return;
+      }
+      if (sel.aircraft === 'custom_upload' && sel.mode !== 'free_fly') {
+        toast('Custom planes can only fly in Free Flight', 2200);
+        sel.mode = 'free_fly';
+      }
+      if (sel.mode !== 'free_fly' && !careerStore.canUsePlane(sel.aircraft, sel.mode)) {
+        toast('Buy a race license for that plane first', 2200);
+        this.showGarage();
+        return;
+      }
+      if (isOnlineRaceMode(sel.mode)) {
+        try {
+          onlineSession = await prepareOnlineRaceSession();
+          spawnSlot = getOnlineSpawnSlot(onlineSession);
+        } catch (error) {
+          toast(error.message || 'Unable to join online race', 2400);
+          return;
+        }
+      }
+      activityState = {
+        ...activityState,
+        selectedAircraft: sel.aircraft,
+        selectedEnvironment: sel.env,
+        selectedMode: sel.mode,
+        practiceRankIndex: sel.practiceRankIndex,
+        lastAircraft: sel.aircraft,
+        lastEnvironment: sel.env,
+        lastMode: sel.mode,
+        lastPlayedAt: new Date().toISOString(),
+        totalLaunches: (activityState.totalLaunches ?? 0) + 1,
+        totalRaceStarts: (activityState.totalRaceStarts ?? 0) + (sel.mode.startsWith('race_') ? 1 : 0),
+        totalChallengeStarts: (activityState.totalChallengeStarts ?? 0) + (sel.mode === 'challenge' ? 1 : 0),
+      };
+      queueProfileSync();
+      const splashRun = showSplash('Streaming terrain and cockpit systems', 0.08, { minDuration: 4600 });
+      await wait(140);
+      hideAll();
+      document.getElementById('screen-game').style.display = 'block';
+      document.getElementById('stars-canvas').style.display = 'none';
+      document.getElementById('pause-menu').classList.remove('visible');
+      document.getElementById('challenge-done').style.display = 'none';
+      document.activeElement?.blur?.();
+
+      // Cleanup old session
+      if (engine) { engine.destroy(); engine = null; }
+      if (hud)    { hud.destroy();    hud    = null; }
+
+      const canvas    = document.getElementById('game-canvas');
+      const hudMount  = document.getElementById('hud-mount');
+      hudMount.innerHTML = '';
+      setSplashProgress(0.28, 'Powering renderer and world systems');
+
+      engine = new GameEngine(canvas, {
+        damageSystem: damageStore,
+        careerSystem: careerStore,
+        onStateUpdate: s => {
+          if (s?.landed && s.landed !== state?.landed) {
+            activityState = {
+              ...activityState,
+              lastOutcome: s.landed,
+              totalCrashes: (activityState.totalCrashes ?? 0) + (s.landed === 'crash' ? 1 : 0),
+              totalLandings: (activityState.totalLandings ?? 0) + (s.landed !== 'crash' ? 1 : 0),
+            };
+            queueProfileSync();
+          }
+          state = s;
+          hud?.update(s);
+          syncFlightToolbar(s);
+        },
+        onFleetUpdate: () => renderHangar(),
+        onPause: () => this.showPause(),
+        onHelpToggle: () => this.handleHelpToggle(),
+        onGuidanceChange: enabled => {
+          syncFlightToolbar({ ...(state ?? {}), guidanceEnabled: enabled });
+          toast(enabled ? 'Landing Laser ON' : 'Landing Laser OFF');
+        },
+        onAssistChange: enabled => {
+          syncFlightToolbar({ ...(state ?? {}), assistEnabled: enabled });
+          toast(enabled ? 'Stability Assist ON' : 'Stability Assist OFF');
+        },
+        onCameraChange: mode => {
+          syncFlightToolbar({ ...(state ?? {}), cameraMode: mode });
+          toast(`Camera: ${mode.toUpperCase()}`);
+        },
+        onTrick: trickName => {
+          if (!trickName) {
+            toast('Need more altitude or speed for tricks');
+            return;
+          }
+          toast(`Trick: ${trickName}`, 1800);
+        },
+        onReload: () => toast('Reloading magazine', 1200),
+        onGunModeChange: mode => {
+          state = { ...(state ?? {}), gunAimMode: mode };
+          syncFlightToolbar(state);
+          hud?.update(state);
+          toast(`Gun Aim: ${mode.toUpperCase()}`, 1400);
+        },
+        onMouseToggle: on => toast(on ? '🖱 Mouse Steer ON' : '🖱 Mouse Steer OFF'),
+        onChallengeComplete: result => this.showChallengeDone(result),
+        onRaceComplete: result => this.showRaceDone(result),
+      });
+
+      if (sel.aircraft === 'custom_upload') {
+        ensureCustomAircraftDefinition();
+      }
+
+      setSplashProgress(0.52, 'Building world geometry');
+      await engine.init(sel.aircraft, sel.env, sel.mode, {
+        practiceRankIndex: sel.practiceRankIndex,
+        authToken: authState?.token ?? null,
+        userId: authState?.user?.id ?? null,
+        roomSession: onlineSession,
+        spawnSlot,
+      });
+
+      // Create HUD after engine.init so worldMgr has rings loaded
+      setSplashProgress(0.78, 'Aligning HUD and flight instruments');
+      hud = new HUD(hudMount, engine.world);
+      hud.setAdvancedMode(appSettings.advancedUi);
+      engine.applySettings({
+        bloom: appSettings.bloom,
+        contrail: appSettings.contrail,
+        shadows: appSettings.shadows,
+        weather: appSettings.weather,
+        quality: appSettings.quality,
+        fpsCap: Number(appSettings.fpsCap) || 0,
+      });
+      engine.setGuidanceEnabled(appSettings.guidanceEnabled);
+      engine.setGunAimMode(appSettings.gunAimMode);
+      if (appSettings.autoLandDefault) engine.toggleAutoLand();
+      syncFlightToolbar({
+        cameraMode: 'follow',
+        guidanceEnabled: appSettings.guidanceEnabled,
+        gunAimMode: appSettings.gunAimMode,
+        assistEnabled: false,
+        autoLandEnabled: appSettings.autoLandDefault,
+      });
+
+      engine.start();
+      setSplashProgress(1, 'Ready for takeoff');
+      hideSplash(splashRun, 320);
+    },
+
+    showPause() {
+      if (hud?.isHelpVisible?.()) return;
+      // Sync checkboxes with engine settings
+      if (engine) {
+        document.getElementById('set-bloom').checked    = engine.settings.bloom;
+        document.getElementById('set-contrail').checked = engine.settings.contrail;
+        document.getElementById('set-shadows').checked  = engine.settings.shadows;
+        document.getElementById('set-weather').value    = engine.settings.weather;
+        document.getElementById('set-quality').value    = engine.settings.quality ?? 'auto';
+        document.getElementById('set-fps-cap').value    = String(engine.settings.fpsCap ?? 0);
+      }
+      renderControlsPanel();
+      document.getElementById('pause-menu').classList.add('visible');
+      engine?.pause();
+    },
+
+    toggleSetting(key, value) {
+      engine?.applySettings({ [key]: value });
+    },
+
+    toggleAppSetting(key, value) {
+      appSettings[key] = value;
+      saveAppSettings();
+      if (key === 'advancedUi') hud?.setAdvancedMode?.(value);
+      if (key === 'guidanceEnabled' && engine) {
+        engine.setGuidanceEnabled(value);
+        state = { ...(state ?? {}), guidanceEnabled: value };
+        syncFlightToolbar(state);
+      }
+      if (key === 'weather' && engine) engine.applySettings({ weather: value });
+      if ((key === 'bloom' || key === 'contrail' || key === 'shadows' || key === 'quality' || key === 'fpsCap') && engine) {
+        engine.applySettings({ [key]: value });
+      }
+      if (key === 'gunAimMode' && engine) {
+        const mode = engine.setGunAimMode(value);
+        state = { ...(state ?? {}), gunAimMode: mode };
+        syncFlightToolbar(state);
+        hud?.update(state);
+      }
+      if (key === 'autoLandDefault' && engine) {
+        const currentlyEnabled = !!state?.autoLandEnabled;
+        if (value !== currentlyEnabled) {
+          this.toggleAutoLand();
+        }
+      }
+      renderSettingsScreen();
+      queueProfileSync();
+    },
+
+    toggleGuidance() {
+      const enabled = engine?.toggleGuidance?.();
+      if (enabled === undefined) return;
+      state = { ...(state ?? {}), guidanceEnabled: enabled };
+      hud?.update(state);
+      syncFlightToolbar(state);
+    },
+
+    toggleAssist() {
+      const enabled = engine?.toggleAssist?.();
+      if (enabled === undefined) return;
+      state = { ...(state ?? {}), assistEnabled: enabled };
+      hud?.update(state);
+      syncFlightToolbar(state);
+    },
+
+    toggleGunMode() {
+      const mode = engine?.toggleGunAimMode?.();
+      if (!mode) return;
+      appSettings.gunAimMode = mode;
+      saveAppSettings();
+      state = { ...(state ?? {}), gunAimMode: mode };
+      hud?.update(state);
+      syncFlightToolbar(state);
+      renderSettingsScreen();
+      toast(`Gun Aim: ${mode.toUpperCase()}`, 1400);
+    },
+
+    toggleAutoLand() {
+      const status = engine?.toggleAutoLand?.();
+      if (status === undefined) return;
+      const enabled = typeof status === 'boolean' ? status : !!status.autoLandEnabled;
+      state = { ...(state ?? {}), ...(typeof status === 'object' ? status : {}), autoLandEnabled: enabled };
+      hud?.update(state);
+      syncFlightToolbar(state);
+      if (state.autoLandAllowed === false) toast('Autoland is disabled for this session', 2200);
+      else if (state.awaitingLandingTarget) toast('Click terrain to choose a landing point', 2200);
+      else toast(enabled ? 'Auto Land ON' : 'Auto Land OFF');
+    },
+
+    cycleCamera() {
+      const mode = engine?.cycleCameraMode?.();
+      if (!mode) return;
+      state = { ...(state ?? {}), cameraMode: mode };
+      hud?.update(state);
+      syncFlightToolbar(state);
+    },
+
+    resetFlight() {
+      const next = engine?.resetAircraftToRunway?.();
+      if (!next) return;
+      state = next;
+      hud?.update(state);
+      syncFlightToolbar(state);
+      toast('Aircraft reset on runway', 1600);
+    },
+
+    handleHelpToggle() {
+      const helpVisible = hud?.toggleHelp?.();
+      const toolbar = document.getElementById('flight-toolbar');
+      if (toolbar) toolbar.style.display = helpVisible ? 'none' : 'flex';
+      if (helpVisible) {
+        engine?.pause();
+      } else if (!document.getElementById('pause-menu').classList.contains('visible')) {
+        engine?.resume();
+      }
+    },
+
+    resumeGame() {
+      pendingControlBinding = null;
+      document.getElementById('pause-menu').classList.remove('visible');
+      document.getElementById('flight-toolbar').style.display = 'flex';
+      engine?.resume();
+    },
+
+    submitScorePrompt() {
+      document.getElementById('pause-menu').classList.remove('visible');
+      document.getElementById('challenge-done').style.display = 'none';
+
+      const score = state ? this._calcScore() : 0;
+      document.getElementById('score-display').textContent = score.toLocaleString();
+      document.getElementById('score-modal').style.display = 'flex';
+      const scoreName = document.getElementById('score-name');
+      if (scoreName && authState?.user?.username && !scoreName.value) scoreName.value = authState.user.username;
+      scoreName?.focus();
+    },
+
+    _calcScore() {
+      if (!state) return 0;
+      if (state.gameMode === 'challenge') {
+        return Math.max(0, Math.round(10000 - (state.challengeTimer || 0) * 100));
+      }
+      if (state.gameMode === 'race_online_ranked') {
+        return careerStore.getState().legendScore;
+      }
+      // Free fly: based on speed + altitude + flight time
+      return Math.round(
+        state.speed * 12 +
+        Math.max(0, state.altitude) * 0.5 +
+        (state.challengeTimer || 0) * 5
+      );
+    },
+
+    async submitScore() {
+      const name = document.getElementById('score-name').value.trim();
+      if (!name) { toast('Please enter your name'); return; }
+      const score = this._calcScore();
+
+      try {
+        const resp = await fetch(`${API_BASE}/submit-score`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            player_name:   name,
+            aircraft_type: sel.aircraft,
+            game_mode:     sel.mode,
+            environment:   sel.env,
+            score,
+          }),
+        });
+        if (resp.ok) {
+          toast('✅ Score submitted!');
+          this.closeScoreModal();
+        } else {
+          toast('❌ Submit failed');
+        }
+      } catch (e) {
+        toast('❌ Cannot reach server');
+      }
+    },
+
+    closeScoreModal() {
+      document.getElementById('score-modal').style.display = 'none';
+    },
+
+    showChallengeDone(result) {
+      document.getElementById('result-title').textContent = 'CHALLENGE COMPLETE';
+      const mins = Math.floor(result.time / 60);
+      const secs = (result.time % 60).toFixed(2);
+      document.getElementById('cd-time').textContent  = `${mins}:${secs.padStart(5,'0')}`;
+      document.getElementById('cd-score').textContent = `Score: ${result.score.toLocaleString()} · +$${result?.careerResult?.moneyDelta ?? 0}`;
+      document.getElementById('challenge-done').style.display = 'flex';
+      renderCareerScreen();
+      renderHangar();
+      queueProfileSync();
+    },
+
+    showRaceDone(result) {
+      const career = result?.careerState ?? careerStore.getState();
+      const place = result?.racePlace ?? result?.place ?? 1;
+      document.getElementById('result-title').textContent = place === 1 ? 'VICTORY LAP COMPLETE' : 'RACE COMPLETE';
+      document.getElementById('cd-time').textContent = `PLACE ${place} / 5`;
+      document.getElementById('cd-score').textContent = career.rankMaxed
+        ? `${result?.careerResult?.legendScoreDelta > 0 ? '+' : ''}${result?.careerResult?.legendScoreDelta ?? 0} Legend Points`
+        : `${result?.careerResult?.rankDelta > 0 ? '+' : ''}${result?.careerResult?.rankDelta ?? 0}% Rank · +$${result?.careerResult?.moneyDelta ?? 0}`;
+      document.getElementById('challenge-done').style.display = 'flex';
+      renderCareerScreen();
+      renderHangar();
+      queueProfileSync();
+    },
+
+    repairAircraft(type) {
+      const costResult = careerStore.payRepair(type, damageStore.getCondition(type));
+      if (!costResult.ok) {
+        toast(`${costResult.reason} (${costResult.cost ? `$${costResult.cost}` : ''})`, 2200);
+        return;
+      }
+      if (engine) engine.repairAircraft(type);
+      else damageStore.repair(type);
+      renderHangar();
+      renderCareerScreen();
+      if (garageSelection.type === type) triggerGarageRepairAnimation();
+      queueProfileSync();
+      toast(`${AIRCRAFT[type]?.name ?? type} repaired${costResult.cost ? ` for $${costResult.cost}` : ''}`, 1800);
+    },
+
+    quickRepairAircraft(type) {
+      this.repairAircraft(type);
+    },
+
+    openRepairBay(type) {
+      repairBay.type = type;
+      repairBay.tasks = getRepairTasks(type);
+      repairBay.completed = new Set();
+      renderRepairBay();
+    },
+
+    repairStep(stepId) {
+      if (!repairBay.type || !repairBay.tasks.find(task => task.id === stepId)) return;
+      repairBay.completed.add(stepId);
+      renderRepairBay();
+
+      if (repairBay.completed.size < repairBay.tasks.length) {
+        toast('System restored', 1100);
+        return;
+      }
+
+      const aircraftType = repairBay.type;
+      const costResult = careerStore.payRepair(aircraftType, damageStore.getCondition(aircraftType));
+      if (!costResult.ok) {
+        toast(`${costResult.reason} (${costResult.cost ? `$${costResult.cost}` : ''})`, 2200);
+        return;
+      }
+      if (engine) engine.repairAircraft(aircraftType);
+      else damageStore.repair(aircraftType);
+      renderHangar();
+      renderCareerScreen();
+      if (garageSelection.type === aircraftType) triggerGarageRepairAnimation();
+      queueProfileSync();
+      toast(`${AIRCRAFT[aircraftType]?.name ?? aircraftType} fully repaired${costResult.cost ? ` for $${costResult.cost}` : ''}`, 1800);
+      this.closeRepairBay();
+    },
+
+    closeRepairBay() {
+      repairBay.type = null;
+      repairBay.tasks = [];
+      repairBay.completed = new Set();
+      const modal = document.getElementById('repair-bay-modal');
+      if (modal) modal.style.display = 'none';
+    },
+
+    repairAllAircraft() {
+      const costResult = careerStore.payRepairAll(damageStore.getFleetStatus());
+      if (!costResult.ok) {
+        toast(`${costResult.reason} (${costResult.cost ? `$${costResult.cost}` : ''})`, 2200);
+        return;
+      }
+      if (engine) engine.repairAllAircraft();
+      else damageStore.repairAll();
+      this.closeRepairBay();
+      renderHangar();
+      renderCareerScreen();
+      triggerGarageRepairAnimation();
+      queueProfileSync();
+      toast(`Fleet restored to 100%${costResult.cost ? ` for $${costResult.cost}` : ''}`, 1800);
+    },
+
+    selectGaragePlane(type) {
+      garageSelection.type = type;
+      renderHangar();
+    },
+
+    buyPlane(type) {
+      const result = careerStore.purchasePlane(type);
+      if (!result.ok) {
+        toast(result.reason);
+        return;
+      }
+      renderCareerScreen();
+      garageSelection.type = type;
+      renderHangar();
+      queueProfileSync();
+      toast(`${AIRCRAFT[type]?.name ?? type} licensed`, 1800);
+    },
+
+    buyGun(id) {
+      const result = careerStore.purchaseGun(id);
+      if (!result.ok) {
+        toast(result.reason);
+        return;
+      }
+      renderCareerScreen();
+      renderHangar();
+      queueProfileSync();
+      toast(`${id.toUpperCase()} purchased`, 1800);
+    },
+
+    equipGun(id) {
+      if (!careerStore.equipGun(id)) {
+        toast('Gun not owned');
+        return;
+      }
+      renderCareerScreen();
+      renderHangar();
+      queueProfileSync();
+      toast(`${id.toUpperCase()} equipped`, 1600);
+    },
+
+    updateCustomPlaneField(field, value) {
+      customPlaneDraft[field] = ['speed', 'agility', 'stability', 'maxSpeed', 'stallSpeed', 'startAltitude', 'startSpeed', 'targetLength'].includes(field)
+        ? Number(value)
+        : value;
+      saveCustomPlaneDraft();
+      if (field === 'name' || field === 'description') {
+        updateSummary();
+        queueProfileSync();
+        return;
+      }
+      buildSelectionUI();
+      this.switchTab('custom');
+      queueProfileSync();
+    },
+
+    onCustomPlaneFile(event) {
+      const file = event?.target?.files?.[0];
+      if (!file) return;
+      if (customPlaneAssetUrl) URL.revokeObjectURL(customPlaneAssetUrl);
+      customPlaneFile = file;
+      customPlaneAssetUrl = URL.createObjectURL(file);
+      customPlaneDraft.fileName = file.name;
+      customPlaneDraft.ready = true;
+      saveCustomPlaneDraft();
+      ensureCustomAircraftDefinition();
+      buildSelectionUI();
+      this.switchTab('custom');
+      queueProfileSync();
+      toast('Custom aircraft model loaded', 1800);
+    },
+
+    prepareCustomPlane() {
+      if (!customPlaneDraft.ready) {
+        toast('Upload a model first', 1800);
+        return;
+      }
+      this.selectAircraft('custom_upload');
+      this.selectMode('free_fly');
+      this.switchTab('aircraft');
+      toast('Custom plane is ready for Free Flight', 1800);
+    },
+
+    startRebind(actionId) {
+      pendingControlBinding = actionId;
+      renderControlsPanel();
+      renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+    },
+
+    resetControls() {
+      if (engine?.resetControlBindings) engine.resetControlBindings();
+      else saveStoredBindings(JSON.parse(JSON.stringify(CONTROLS.keyboard)));
+      pendingControlBinding = null;
+      renderControlsPanel();
+      renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+      queueProfileSync();
+      toast('Controls reset', 1500);
+    },
+
+    exitToMenu() {
+      pendingControlBinding = null;
+      syncProfileNow(false);
+      if (engine) { engine.destroy(); engine = null; }
+      if (hud)    { hud.destroy();    hud    = null; }
+      clearOnlineRoomSession();
+      document.getElementById('challenge-done').style.display = 'none';
+      document.getElementById('pause-menu').classList.remove('visible');
+      document.getElementById('flight-toolbar').style.display = 'flex';
+      renderHangar();
+      this.showMenu();
+    },
+
+    async loadLeaderboard(filter = 'all') {
+      const body = document.getElementById('lb-body');
+      body.innerHTML = '<div style="padding:40px; text-align:center; color:#3a4a5a;">Loading…</div>';
+      try {
+        const resp = await fetch(`${API_BASE}/leaderboard`);
+        const data = await resp.json();
+        const filtered = filter === 'all'
+          ? data
+          : data.filter(row => row.game_mode === filter);
+        if (!filtered.length) {
+          body.innerHTML = '<div style="padding:40px; text-align:center; color:#3a4a5a;">No scores yet. Be the first!</div>';
+          return;
+        }
+        const rankColors = ['#FFD700','#C0C0C0','#CD7F32'];
+        body.innerHTML = filtered.slice(0, 20).map((row, i) => `
+          <div class="lb-row" style="${i < 3 ? 'background:rgba(255,255,100,0.04)' : ''}">
+            <span style="color:${rankColors[i] ?? '#6688aa'}; font-weight:${i<3?800:400};">${i+1}</span>
+            <span style="color:#ccd6e8; overflow:hidden; text-overflow:ellipsis;">${escHtml(row.player_name)}</span>
+            <span style="color:#6688aa; font-size:11px;">${escHtml(row.aircraft_type)}</span>
+            <span style="color:#6688aa; font-size:11px;">${escHtml(row.game_mode)}</span>
+            <span style="color:${i<3?'#ffff66':'#ccd6e8'}; text-align:right; font-weight:700;">${Number(row.score).toLocaleString()}</span>
+          </div>
+        `).join('');
+      } catch (e) {
+        body.innerHTML = '<div style="padding:40px; text-align:center; color:#3a4a5a;">Cannot reach server. Is backend running?</div>';
+      }
+    },
+  };
+
+  // ── Helpers ──────────────────────────────────────────────
+  function hideAll() {
+    ['screen-auth','screen-menu','screen-select','screen-leaderboard','screen-settings','screen-career','screen-hangar','screen-game'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    const toolbar = document.getElementById('flight-toolbar');
+    if (toolbar) toolbar.style.display = 'flex';
+    const repairModal = document.getElementById('repair-bay-modal');
+    if (repairModal) repairModal.style.display = 'none';
+    document.getElementById('pause-menu').classList.remove('visible');
+    document.getElementById('challenge-done').style.display = 'none';
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  let _toastTimer;
+  function toast(msg, duration = 2200) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.style.opacity = '1';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.style.opacity = '0'; }, duration);
+  }
+
+  let uiAudioCtx = null;
+  function playUiSound(kind = 'soft') {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!uiAudioCtx) uiAudioCtx = new Ctx();
+    if (uiAudioCtx.state === 'suspended') uiAudioCtx.resume().catch(() => {});
+    const now = uiAudioCtx.currentTime;
+    const osc = uiAudioCtx.createOscillator();
+    const gain = uiAudioCtx.createGain();
+    const filter = uiAudioCtx.createBiquadFilter();
+    const profile = {
+      primary: { a: 260, b: 420, g: 0.03, type: 'sine' },
+      accent: { a: 420, b: 760, g: 0.045, type: 'sine' },
+      ghost: { a: 240, b: 420, g: 0.03, type: 'triangle' },
+      launch: { a: 142, b: 248, g: 0.018, type: 'sine' },
+      soft: { a: 270, b: 360, g: 0.02, type: 'sine' },
+    }[kind] ?? { a: 270, b: 360, g: 0.02, type: 'sine' };
+    osc.type = profile.type;
+    osc.frequency.setValueAtTime(profile.a, now);
+    osc.frequency.exponentialRampToValueAtTime(profile.b, now + 0.08);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(1200, now);
+    gain.gain.setValueAtTime(0.001, now);
+    gain.gain.exponentialRampToValueAtTime(profile.g, now + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(uiAudioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  }
+
+  function syncFlightToolbar(nextState = state) {
+    const guideBtn = document.getElementById('btn-guidance-toggle');
+    const autoLandBtn = document.getElementById('btn-autoland-toggle');
+    const gunModeBtn = document.getElementById('btn-gun-mode-toggle');
+    const assistBtn = document.getElementById('btn-assist-toggle');
+    const cameraBtn = document.getElementById('btn-camera-toggle');
+    const resetBtn = document.getElementById('btn-reset-flight');
+    if (guideBtn) {
+      const enabled = nextState?.guidanceEnabled !== false;
+      guideBtn.textContent = enabled ? 'Laser ON' : 'Laser OFF';
+      guideBtn.classList.toggle('btn-primary', enabled);
+      guideBtn.classList.toggle('btn-ghost', !enabled);
+    }
+    if (autoLandBtn) {
+      const enabled = !!nextState?.autoLandEnabled;
+      const awaiting = !!nextState?.awaitingLandingTarget;
+      const locked = nextState?.autoLandAllowed === false;
+      autoLandBtn.textContent = locked ? 'Auto Locked' : awaiting ? 'Pick Landing Point' : enabled ? 'Auto Land ON' : 'Auto Land OFF';
+      autoLandBtn.classList.toggle('btn-primary', !locked && (enabled || awaiting));
+      autoLandBtn.classList.toggle('btn-ghost', locked || (!enabled && !awaiting));
+      autoLandBtn.classList.toggle('btn-accent', locked);
+    }
+    if (gunModeBtn) {
+      const mode = (nextState?.gunAimMode ?? appSettings.gunAimMode ?? 'follow').toUpperCase();
+      gunModeBtn.textContent = `Gun: ${mode}`;
+      gunModeBtn.classList.toggle('btn-accent', mode === 'FREE');
+      gunModeBtn.classList.toggle('btn-ghost', mode !== 'FREE');
+    }
+    if (assistBtn) {
+      const enabled = !!nextState?.assistEnabled;
+      assistBtn.textContent = enabled ? 'Assist ON' : 'Assist OFF';
+      assistBtn.classList.toggle('btn-accent', enabled);
+      assistBtn.classList.toggle('btn-ghost', !enabled);
+    }
+    if (cameraBtn) {
+      const mode = (nextState?.cameraMode ?? 'follow').toUpperCase();
+      cameraBtn.textContent = `Camera: ${mode}`;
+    }
+    if (resetBtn) {
+      resetBtn.style.display = nextState?.landed === 'crash' ? 'inline-flex' : 'none';
+    }
+  }
+
+  function bindUI() {
+    document.title = 'Skylark Flight';
+    const menuBrand = document.querySelector('#menu-hero > div:first-child > div');
+    const menuHeading = document.querySelector('#menu-hero h1');
+    const menuSubtitle = document.getElementById('menu-subtitle');
+    if (menuBrand) menuBrand.textContent = 'SKYLARK FLIGHT';
+    if (menuHeading) {
+      menuHeading.textContent = 'Flight Sim';
+      menuHeading.style.fontFamily = `'Bebas Neue', sans-serif`;
+      menuHeading.style.fontSize = 'clamp(42px, 9vw, 78px)';
+      menuHeading.style.letterSpacing = '1px';
+      menuHeading.style.lineHeight = '0.95';
+    }
+    if (menuSubtitle) {
+      menuSubtitle.innerHTML = `Modern browser flight simulator.<br/>${Object.keys(AIRCRAFT).length} aircraft | ${Object.keys(ENVIRONMENTS).length} environments | Full physics.`;
+    }
+
+    document.querySelectorAll('.btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const kind = button.dataset.uiSound || (
+          button.classList.contains('btn-primary')
+            ? 'primary'
+            : button.classList.contains('btn-accent')
+              ? 'accent'
+              : 'ghost'
+        );
+        playUiSound(kind);
+      });
+    });
+
+    document.getElementById('menu-new-mission')?.addEventListener('click', () => App.showSelect());
+    document.getElementById('menu-repair-hangar')?.addEventListener('click', () => App.showHangar());
+    document.getElementById('menu-leaderboard')?.addEventListener('click', () => App.showLeaderboard());
+    document.getElementById('menu-settings')?.addEventListener('click', () => App.showSettings());
+    document.getElementById('menu-career')?.addEventListener('click', () => App.showCareer());
+    document.getElementById('launch-game')?.addEventListener('click', () => App.launchGame());
+    document.getElementById('btn-guidance-toggle')?.addEventListener('click', () => App.toggleGuidance());
+    document.getElementById('btn-autoland-toggle')?.addEventListener('click', () => App.toggleAutoLand());
+    document.getElementById('btn-gun-mode-toggle')?.addEventListener('click', () => App.toggleGunMode());
+    document.getElementById('btn-assist-toggle')?.addEventListener('click', () => App.toggleAssist());
+    document.getElementById('btn-camera-toggle')?.addEventListener('click', () => App.cycleCamera());
+    document.getElementById('btn-reset-flight')?.addEventListener('click', () => App.resetFlight());
+
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      btn.addEventListener('click', () => App.switchTab(btn.dataset.tab));
+    });
+
+    document.getElementById('set-bloom')?.addEventListener('change', event => App.toggleSetting('bloom', event.target.checked));
+    document.getElementById('set-contrail')?.addEventListener('change', event => App.toggleSetting('contrail', event.target.checked));
+    document.getElementById('set-shadows')?.addEventListener('change', event => App.toggleSetting('shadows', event.target.checked));
+    document.getElementById('set-quality')?.addEventListener('change', event => App.toggleSetting('quality', event.target.value));
+    document.getElementById('set-fps-cap')?.addEventListener('change', event => App.toggleSetting('fpsCap', Number(event.target.value) || 0));
+    document.getElementById('set-weather')?.addEventListener('change', event => App.toggleSetting('weather', event.target.value));
+    document.getElementById('settings-bloom')?.addEventListener('change', event => App.toggleAppSetting('bloom', event.target.checked));
+    document.getElementById('settings-contrail')?.addEventListener('change', event => App.toggleAppSetting('contrail', event.target.checked));
+    document.getElementById('settings-shadows')?.addEventListener('change', event => App.toggleAppSetting('shadows', event.target.checked));
+    document.getElementById('settings-quality')?.addEventListener('change', event => App.toggleAppSetting('quality', event.target.value));
+    document.getElementById('settings-fps-cap')?.addEventListener('change', event => App.toggleAppSetting('fpsCap', Number(event.target.value) || 0));
+    document.getElementById('settings-weather')?.addEventListener('change', event => App.toggleAppSetting('weather', event.target.value));
+    document.getElementById('settings-advanced-ui')?.addEventListener('change', event => App.toggleAppSetting('advancedUi', event.target.checked));
+    document.getElementById('settings-guidance')?.addEventListener('change', event => App.toggleAppSetting('guidanceEnabled', event.target.checked));
+    document.getElementById('settings-autoland')?.addEventListener('change', event => App.toggleAppSetting('autoLandDefault', event.target.checked));
+    document.getElementById('settings-gun-mode')?.addEventListener('change', event => App.toggleAppSetting('gunAimMode', event.target.value));
+
+    window.addEventListener('keydown', event => {
+      if (!pendingControlBinding) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (event.code === 'Escape') {
+        pendingControlBinding = null;
+        renderControlsPanel();
+        renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+        return;
+      }
+      if (engine?.setControlBinding) {
+        engine.setControlBinding(pendingControlBinding, event.code);
+      } else {
+        const bindings = getStoredBindings();
+        bindings[pendingControlBinding] = [event.code];
+        saveStoredBindings(bindings);
+      }
+      const actionName = CONTROL_ACTIONS.find(action => action.id === pendingControlBinding)?.label ?? pendingControlBinding;
+      pendingControlBinding = null;
+      renderControlsPanel();
+      renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+      queueProfileSync();
+      toast(`${actionName}: ${formatKeyLabel(event.code)}`, 1600);
+    }, true);
+  }
+
+  // Score-name enter key
+  document.getElementById('score-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') App.submitScore();
+  });
+
+  async function runInitialBoot() {
+    bindUI();
+    renderHangar();
+    const splashRun = showSplash('Loading skylines and aircraft showcases', 0.05, {
+      minDuration: 12800,
+      pin: true,
+    });
+    await wait(1500);
+    setSplashProgress(0.16, 'Streaming splash artwork and avionics');
+    await wait(1900);
+    setSplashProgress(0.34, 'Indexing terrain, aircraft, and race systems');
+    await wait(1900);
+    setSplashProgress(0.52, 'Calibrating HUD, camera, and controls');
+    const resumeTask = App.resumeSession();
+    await wait(2200);
+    setSplashProgress(0.72, 'Connecting pilot profile and cloud activity');
+    await resumeTask;
+    await wait(1800);
+    setSplashProgress(0.9, 'Opening the flight deck');
+    await wait(900);
+    setSplashProgress(1, 'Ready');
+    hideSplash(splashRun, 260, true);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      runInitialBoot();
+    }, { once: true });
+  } else {
+    runInitialBoot();
+  }
+</script>
+</body>
+</html>

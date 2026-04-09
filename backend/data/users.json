@@ -1,0 +1,666 @@
+[
+  {
+    "id": "3d299972-6715-474c-b8c5-4d460a427f3c",
+    "username": "codex_smoke_0e8f2d70",
+    "usernameKey": "codex_smoke_0e8f2d70",
+    "passwordHash": "f5b509dc723fb30e97a3b9f0b5956a83:12bfbd9a9af1267ac6587a5aa9af2c676986240d5e6f0ac7dc7c0ce3fcaac676e943625141f6d188cb3b35636f2613ea89591f2d445effca820928ff9af86b63",
+    "createdAt": "2026-03-31T01:30:26.046Z",
+    "profile": {
+      "career": {
+        "money": 4321
+      },
+      "damage": {
+        "prop": 88
+      },
+      "settings": {
+        "bloom": true
+      },
+      "controls": null,
+      "customPlane": null,
+      "updatedAt": "2026-03-31T01:30:28.128Z"
+    }
+  },
+  {
+    "id": "500b94bc-bbde-4fba-8600-fa9d0aa8339b",
+    "username": "Vermexity",
+    "usernameKey": "vermexity",
+    "passwordHash": "86149db8c3a4cda8a84f77daf1b046b8:ab2bf0f896e4bf0bd58b23101d041ec98de0e53e6834399de1b208ee63fda49fd7697ba4163410b7f07b67787b8852ab0411e94fd292ad6671df0bab753b98d6",
+    "createdAt": "2026-04-07T22:34:10.212Z",
+    "profile": {
+      "career": {
+        "money": 800,
+        "rankIndex": 0,
+        "rankProgress": 0,
+        "legendScore": 0,
+        "ownedPlanes": [
+          "prop",
+          "fighter",
+          "stunt"
+        ],
+        "ownedGuns": [
+          "standard"
+        ],
+        "equippedGun": "standard",
+        "raceHistory": []
+      },
+      "damage": {
+        "prop": 0,
+        "jet": 100,
+        "fighter": 34,
+        "glider": 100,
+        "stunt": 100,
+        "cargo": 100,
+        "airliner": 100,
+        "raptor": 0
+      },
+      "settings": {
+        "bloom": true,
+        "contrail": true,
+        "shadows": false,
+        "weather": "none",
+        "advancedUi": true,
+        "guidanceEnabled": true,
+        "autoLandDefault": false,
+        "gunAimMode": "follow",
+        "quality": "quality",
+        "fpsCap": 120
+      },
+      "controls": {
+        "pitchUp": [
+          "KeyW"
+        ],
+        "pitchDown": [
+          "KeyS"
+        ],
+        "rollLeft": [
+          "KeyA"
+        ],
+        "rollRight": [
+          "KeyD"
+        ],
+        "yawLeft": [
+          "KeyQ"
+        ],
+        "yawRight": [
+          "KeyE"
+        ],
+        "aimUp": [
+          "ArrowUp"
+        ],
+        "aimDown": [
+          "ArrowDown"
+        ],
+        "aimLeft": [
+          "ArrowLeft"
+        ],
+        "aimRight": [
+          "ArrowRight"
+        ],
+        "throttleUp": [
+          "ShiftLeft"
+        ],
+        "throttleDown": [
+          "ControlLeft"
+        ],
+        "cameraToggle": [
+          "KeyC"
+        ],
+        "guidanceToggle": [
+          "KeyG"
+        ],
+        "brake": [
+          "KeyB"
+        ],
+        "boost": [
+          "KeyF"
+        ],
+        "shoot": [
+          "KeyO"
+        ],
+        "reload": [
+          "KeyR"
+        ],
+        "aimModeToggle": [
+          "KeyV"
+        ],
+        "trick": [
+          "KeyT"
+        ],
+        "assistToggle": [
+          "KeyL"
+        ],
+        "helpToggle": [
+          "KeyH"
+        ],
+        "mouseToggle": [
+          "KeyM"
+        ],
+        "pause": [
+          "Escape"
+        ]
+      },
+      "activity": {
+        "selectedAircraft": "fighter",
+        "selectedEnvironment": "air_race",
+        "selectedMode": "race_practice",
+        "practiceRankIndex": 0,
+        "lastAircraft": "fighter",
+        "lastEnvironment": "air_race",
+        "lastMode": "race_practice",
+        "lastPlayedAt": "2026-04-09T22:57:36.412Z",
+        "lastOutcome": "crash",
+        "totalLaunches": 28,
+        "totalCrashes": 16,
+        "totalLandings": 6,
+        "totalRaceStarts": 14,
+        "totalChallengeStarts": 0
+      },
+      "customPlane": {
+        "name": "Custom Prototype",
+        "description": "Upload a GLB or GLTF aircraft and tune its flight profile for free flight.",
+        "speed": 5,
+        "agility": 5,
+        "stability": 5,
+        "maxSpeed": 720,
+        "stallSpeed": 220,
+        "startAltitude": 260,
+        "startSpeed": 110,
+        "targetLength": 52,
+        "color": "#87cfff",
+        "accentColor": "#ffffff",
+        "ready": false,
+        "fileName": null
+      },
+      "updatedAt": "2026-04-09T22:59:09.802Z"
+    },
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": null,
+      "lastActiveAt": "2026-04-09T23:11:57.321Z",
+      "currentStorage": "local"
+    }
+  },
+  {
+    "id": "9c557c3d-0a5d-451f-8997-a0a1a745323e",
+    "username": "race_97a53701_1",
+    "usernameKey": "race_97a53701_1",
+    "passwordHash": "bfc5e58dcde8dbcdcca0b22c299c5b5d:60454eeea0b5192b74d4d0740ad103357a3a60b68ff07bef1a8e879cbab9f2c2ccfaf9249febd0ebbcc6d437012be54662f9ff7d948546d7cfb15f71b6a41be0",
+    "createdAt": "2026-04-09T22:38:47.570Z",
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:38:47.571Z"
+    }
+  },
+  {
+    "id": "78a1c1aa-1bb3-4392-b9a9-5f94a3f30374",
+    "username": "race_97a53701_2",
+    "usernameKey": "race_97a53701_2",
+    "passwordHash": "60ddb8f72d0d218c0549d1e94e937bb3:a72874b62da1a930543637082bc95c7300c7eb8670797157b88551ba18409a79f604dc827981ade31e1928a0f2ea832e0b19b81f920a50a88c6fbe7c16042261",
+    "createdAt": "2026-04-09T22:38:47.887Z",
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:38:47.888Z"
+    }
+  },
+  {
+    "id": "1a1182dd-8bce-48fc-b258-c915a2dc1694",
+    "username": "race_97a53701_3",
+    "usernameKey": "race_97a53701_3",
+    "passwordHash": "2fc723a3b24300681698a4050e15d0ad:8f622a4628e6bbc2afb31e77fc0baf2b0b1ff053b9e1d200a04fc948a6515ca9e7c15e9612167de8f0c61afbbd16c28d379739b66ae408a34dfcd3cfb4c811eb",
+    "createdAt": "2026-04-09T22:38:48.141Z",
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:38:48.141Z"
+    }
+  },
+  {
+    "id": "1d137af8-7f14-4432-9e58-6b4e5dda8f98",
+    "username": "race_97a53701_4",
+    "usernameKey": "race_97a53701_4",
+    "passwordHash": "d52b3033f2493ddbfb7a1ecbc3348a6b:63bbb6fbc5c058841f18b2a086dd5fd73436628429812e5ccb6269db4a9c310b2aee14338e7ee020d36d3fce47c0364cc33850164b745ea14fbfa5846ad25b5d",
+    "createdAt": "2026-04-09T22:38:48.412Z",
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:38:48.412Z"
+    }
+  },
+  {
+    "id": "59fdc1ac-c56f-425a-b295-93c3040e7f58",
+    "username": "race_97a53701_5",
+    "usernameKey": "race_97a53701_5",
+    "passwordHash": "cbcf79d9a82fa3ad7914725f45b23597:f684ae0531580af00572ce481c4d87ee821a165780de48ad74d6b5f9485a13eb722971251b01512607894c517fb6784fabee347aa621fb674f5e0d5c27fbf052",
+    "createdAt": "2026-04-09T22:38:48.705Z",
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:38:48.705Z"
+    }
+  },
+  {
+    "id": "42d36dab-f2ed-4b12-b9ab-678380886c96",
+    "username": "race_c5832ebd_1",
+    "usernameKey": "race_c5832ebd_1",
+    "role": "player",
+    "passwordHash": "911de8d1ace51e4525a5a9d592528d44:e9e501b41b7a6d2fe5abee506d755bb695f46cd3e3223e32a9c81b8395d8795de2a11b737facd1e9c4dfabd208a41efcd8b329ce45e0bba8812c0adc519622a9",
+    "createdAt": "2026-04-09T22:41:10.527Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:41:10.527Z",
+      "lastActiveAt": "2026-04-09T22:41:10.527Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:41:10.527Z"
+    }
+  },
+  {
+    "id": "e24a86b6-38cc-4482-9f2d-5068940e33a4",
+    "username": "race_c5832ebd_2",
+    "usernameKey": "race_c5832ebd_2",
+    "role": "player",
+    "passwordHash": "a7dc06326011982513e6c4b532147152:604b695cc8dc13bf2f9ace895de06b2bb8872c2f7913354557a4aaebf89b8b0c032cee7498e0ac05e0dae74657b4a89c39276abec2723e0eaf9ff1084e133591",
+    "createdAt": "2026-04-09T22:41:10.712Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:41:10.712Z",
+      "lastActiveAt": "2026-04-09T22:41:10.712Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:41:10.712Z"
+    }
+  },
+  {
+    "id": "36e3f01b-3e96-4a33-a9a2-3e819acdf05c",
+    "username": "race_c5832ebd_3",
+    "usernameKey": "race_c5832ebd_3",
+    "role": "player",
+    "passwordHash": "5f4d9d45f4a910e17543e94d7c7c785d:4f5a8becbf042839b7416fbabd5fbecf59d3395fee739dcecfbee559c0882b35cc3913d2eb039e210fe9e0fe20dae5bd61af34682ed0a091978dfb8b9f2043c4",
+    "createdAt": "2026-04-09T22:41:10.873Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:41:10.873Z",
+      "lastActiveAt": "2026-04-09T22:41:10.873Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:41:10.873Z"
+    }
+  },
+  {
+    "id": "6ea68346-565e-4649-ac59-0e1ee8b7ea5f",
+    "username": "race_c5832ebd_4",
+    "usernameKey": "race_c5832ebd_4",
+    "role": "player",
+    "passwordHash": "b5f2b560505111393d57082713aca7d1:e0a09dcd4791e7514918aafaa8814e620fea934b0b421e745331ee13114d5285e7d0c8a3ae3c084fecfce95526ba00c453930c90b37ba201ffc6cb8b47aa5711",
+    "createdAt": "2026-04-09T22:41:11.026Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:41:11.027Z",
+      "lastActiveAt": "2026-04-09T22:41:11.027Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:41:11.027Z"
+    }
+  },
+  {
+    "id": "86e45184-7678-47da-8f96-f3ef50c283da",
+    "username": "race_c5832ebd_5",
+    "usernameKey": "race_c5832ebd_5",
+    "role": "player",
+    "passwordHash": "3244f1e02d2315776f4a0cb11141561d:3e9c5d56c6581d380d094a7ed3cd0fddfa5d8da4904e43c854e0144c0d40372a87f8f979cf8307a5d467ac3175695a1dc659aacfacd296b0512bda1ae1595fe3",
+    "createdAt": "2026-04-09T22:41:11.171Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:41:11.171Z",
+      "lastActiveAt": "2026-04-09T22:41:11.171Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:41:11.171Z"
+    }
+  },
+  {
+    "id": "757b8339-ca9d-4c61-9bed-93c1b75a42d8",
+    "username": "dev_cc49e384",
+    "usernameKey": "dev_cc49e384",
+    "role": "player",
+    "passwordHash": "a224cd4cb0c86a2ba5d4f079a46b4146:4d63240efc3c345615c88c3125ca560584d64677dc71f99872673fc0d9abe6b1155709f2ca6e18a5fcd6a8e9eb0384539fb2309cbf7eb3fb29e3b4ac69758435",
+    "createdAt": "2026-04-09T22:46:07.174Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:46:07.174Z",
+      "lastActiveAt": "2026-04-09T22:46:07.174Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:46:07.174Z"
+    }
+  },
+  {
+    "id": "a2e33e2b-2035-436f-9f39-3eb3248d49b4",
+    "username": "pilot_cc49e384",
+    "usernameKey": "pilot_cc49e384",
+    "role": "player",
+    "passwordHash": "13fc07cb552e55958d4421ee69b52240:6dd1ea509ddb890312525347b90bb622f0078ea9103a7ae0ec2339bb799a4dc4649a801c0847779ec575b9a03d892b032d16e7be18b8177d15ca40ecc38dbba5",
+    "createdAt": "2026-04-09T22:46:07.215Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:46:07.215Z",
+      "lastActiveAt": "2026-04-09T22:46:07.215Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:46:07.215Z"
+    }
+  },
+  {
+    "id": "f9deca5f-045e-46de-bd1a-55506dc8c5bf",
+    "username": "ops_cd01be",
+    "usernameKey": "ops_cd01be",
+    "role": "player",
+    "passwordHash": "4c70cbe59dac56172caa37aa6ae1a19c:e5cc8fe1c1eb706d9a677f53b252fdae550b7f499a20e71609d541e6d45148de7e40552630682852acd87c1d62b220447277a45cc05f5531cbca864c2c14607e",
+    "createdAt": "2026-04-09T22:47:46.361Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:47:46.361Z",
+      "lastActiveAt": "2026-04-09T22:47:46.361Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:47:46.361Z"
+    }
+  },
+  {
+    "id": "ab3fbb30-bda9-43e3-bf88-5239a53ed88b",
+    "username": "pilot_cd01be",
+    "usernameKey": "pilot_cd01be",
+    "role": "player",
+    "passwordHash": "76a70c9007653d952abbf85383145f73:9b2829f3fb4e3ad0c6f661ee55c31884e5c81bd3c0c8e3f64bcfa350f2d786b330d171982715353989d37145febc03bbf2f95152d621379f2df518281fc14a59",
+    "createdAt": "2026-04-09T22:47:46.401Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:47:46.401Z",
+      "lastActiveAt": "2026-04-09T22:47:46.401Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:47:46.401Z"
+    }
+  },
+  {
+    "id": "578bb412-f03e-437b-8817-371cd571a829",
+    "username": "developer",
+    "usernameKey": "developer",
+    "role": "dev",
+    "passwordHash": "95f1174e7c28e84f4d4449ec56165829:0403b1f482843215970098f8787f2e6e4dea8f5ec9457092290fd82827d205dacf8643a2b63876a380ccd489f4316ddbdac493acafd6c4c1a83f07de494773ea",
+    "createdAt": "2026-04-09T22:49:01.690Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T23:07:16.515Z",
+      "lastActiveAt": "2026-04-09T23:08:02.083Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": {
+        "money": 800,
+        "rankIndex": 0,
+        "rankProgress": 0,
+        "legendScore": 0,
+        "ownedPlanes": [
+          "prop",
+          "fighter",
+          "stunt"
+        ],
+        "ownedGuns": [
+          "standard"
+        ],
+        "equippedGun": "standard",
+        "raceHistory": []
+      },
+      "damage": {
+        "prop": 0,
+        "jet": 100,
+        "fighter": 34,
+        "glider": 100,
+        "stunt": 100,
+        "cargo": 100,
+        "airliner": 100,
+        "raptor": 0
+      },
+      "settings": {
+        "bloom": true,
+        "contrail": true,
+        "shadows": false,
+        "weather": "none",
+        "advancedUi": true,
+        "guidanceEnabled": true,
+        "autoLandDefault": false,
+        "gunAimMode": "follow",
+        "quality": "quality",
+        "fpsCap": 120
+      },
+      "controls": {
+        "pitchUp": [
+          "KeyW"
+        ],
+        "pitchDown": [
+          "KeyS"
+        ],
+        "rollLeft": [
+          "KeyA"
+        ],
+        "rollRight": [
+          "KeyD"
+        ],
+        "yawLeft": [
+          "KeyQ"
+        ],
+        "yawRight": [
+          "KeyE"
+        ],
+        "aimUp": [
+          "ArrowUp"
+        ],
+        "aimDown": [
+          "ArrowDown"
+        ],
+        "aimLeft": [
+          "ArrowLeft"
+        ],
+        "aimRight": [
+          "ArrowRight"
+        ],
+        "throttleUp": [
+          "ShiftLeft"
+        ],
+        "throttleDown": [
+          "ControlLeft"
+        ],
+        "cameraToggle": [
+          "KeyC"
+        ],
+        "guidanceToggle": [
+          "KeyG"
+        ],
+        "brake": [
+          "KeyB"
+        ],
+        "boost": [
+          "KeyF"
+        ],
+        "shoot": [
+          "KeyO"
+        ],
+        "reload": [
+          "KeyR"
+        ],
+        "aimModeToggle": [
+          "KeyV"
+        ],
+        "trick": [
+          "KeyT"
+        ],
+        "assistToggle": [
+          "KeyL"
+        ],
+        "helpToggle": [
+          "KeyH"
+        ],
+        "mouseToggle": [
+          "KeyM"
+        ],
+        "pause": [
+          "Escape"
+        ]
+      },
+      "activity": {
+        "selectedAircraft": "fighter",
+        "selectedEnvironment": "mountains",
+        "selectedMode": "free_fly",
+        "practiceRankIndex": 0,
+        "lastAircraft": "fighter",
+        "lastEnvironment": "mountains",
+        "lastMode": "free_fly",
+        "lastPlayedAt": "2026-04-09T23:07:35.518Z",
+        "lastOutcome": "crash",
+        "totalLaunches": 30,
+        "totalCrashes": 16,
+        "totalLandings": 6,
+        "totalRaceStarts": 14,
+        "totalChallengeStarts": 0
+      },
+      "customPlane": {
+        "name": "Custom Prototype",
+        "description": "Upload a GLB or GLTF aircraft and tune its flight profile for free flight.",
+        "speed": 5,
+        "agility": 5,
+        "stability": 5,
+        "maxSpeed": 720,
+        "stallSpeed": 220,
+        "startAltitude": 260,
+        "startSpeed": 110,
+        "targetLength": 52,
+        "color": "#87cfff",
+        "accentColor": "#ffffff",
+        "ready": false,
+        "fileName": null
+      },
+      "updatedAt": "2026-04-09T23:08:02.082Z"
+    }
+  },
+  {
+    "id": "483cd6d0-05c6-482b-b21b-9152fb3ab1ea",
+    "username": "pilot_49a276",
+    "usernameKey": "pilot_49a276",
+    "role": "player",
+    "passwordHash": "c9c0cd2638bb00c541f01b3e4edfd367:80849ca574d8cf5f1e9b2209256095b0f8e8a80d5c19d43488673cc15964594449a1ffad0c41ecf808259970c4b02a22d3e021a11dfa8b45c1e444b83a45d2a8",
+    "createdAt": "2026-04-09T22:51:12.161Z",
+    "status": {
+      "banned": false,
+      "banReason": "",
+      "lastLoginAt": "2026-04-09T22:51:12.161Z",
+      "lastActiveAt": "2026-04-09T22:51:12.161Z",
+      "currentStorage": "local"
+    },
+    "profile": {
+      "career": null,
+      "damage": null,
+      "settings": null,
+      "controls": null,
+      "activity": null,
+      "customPlane": null,
+      "updatedAt": "2026-04-09T22:51:12.161Z"
+    }
+  }
+]

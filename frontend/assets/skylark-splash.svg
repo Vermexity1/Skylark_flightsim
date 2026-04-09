@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Skylark Flight splash artwork</title>
+  <desc id="desc">Custom aviation title art with angled hero panels, central title lockup, and clean branding.</desc>
+
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#03111d"/>
+      <stop offset="48%" stop-color="#0f4f97"/>
+      <stop offset="100%" stop-color="#04192b"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2cc4ff" stop-opacity="0.96"/>
+      <stop offset="52%" stop-color="#217cf8" stop-opacity="0.88"/>
+      <stop offset="100%" stop-color="#1146ab" stop-opacity="0.94"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f0fbff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#9feaff" stop-opacity="0.74"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="34%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="100%" stop-color="#9defff" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="scan" width="28" height="28" patternUnits="userSpaceOnUse" patternTransform="rotate(-24)">
+      <rect width="28" height="28" fill="none"/>
+      <rect width="6" height="28" fill="#bcf4ff" opacity="0.08"/>
+    </pattern>
+    <clipPath id="left-panel">
+      <polygon points="34,82 602,82 438,432 34,432"/>
+    </clipPath>
+    <clipPath id="bottom-panel">
+      <polygon points="34,508 618,508 806,866 34,866"/>
+    </clipPath>
+    <clipPath id="right-panel">
+      <polygon points="1002,96 1568,96 1568,868 966,868 1128,474"/>
+    </clipPath>
+    <clipPath id="title-core">
+      <polygon points="554,92 1076,92 1302,450 1078,808 556,808 330,450"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#sky)"/>
+  <rect width="1600" height="900" fill="url(#shine)" opacity="0.72"/>
+  <circle cx="1290" cy="116" r="224" fill="#72efff" opacity="0.12"/>
+  <circle cx="274" cy="760" r="240" fill="#1f9dff" opacity="0.12"/>
+
+  <g clip-path="url(#left-panel)">
+    <image href="/assets/hero.jpg" x="-100" y="-10" width="880" height="520" preserveAspectRatio="xMidYMid slice"/>
+    <rect width="1600" height="900" fill="#08131e" opacity="0.16"/>
+  </g>
+  <g clip-path="url(#bottom-panel)">
+    <image href="/assets/hero.jpg" x="-120" y="328" width="1020" height="650" preserveAspectRatio="xMidYMid slice"/>
+    <rect width="1600" height="900" fill="#07121b" opacity="0.18"/>
+  </g>
+  <g clip-path="url(#right-panel)">
+    <image href="/assets/hero.jpg" x="786" y="88" width="860" height="760" preserveAspectRatio="xMidYMid slice"/>
+    <rect width="1600" height="900" fill="#081523" opacity="0.18"/>
+  </g>
+
+  <g clip-path="url(#title-core)">
+    <rect x="330" y="92" width="972" height="716" fill="url(#core)"/>
+    <rect x="330" y="92" width="972" height="716" fill="url(#scan)" opacity="0.74"/>
+    <path d="M484 694 L1152 268" stroke="#ffffff" stroke-opacity="0.08" stroke-width="22"/>
+    <path d="M406 450 H1230" stroke="#effcff" stroke-opacity="0.18" stroke-width="2"/>
+    <path d="M556 306 H1086" stroke="#effcff" stroke-opacity="0.11" stroke-width="2"/>
+    <path d="M558 638 H1082" stroke="#effcff" stroke-opacity="0.11" stroke-width="2"/>
+  </g>
+
+  <polygon points="34,82 602,82 438,432 34,432" fill="none" stroke="url(#edge)" stroke-width="4"/>
+  <polygon points="34,508 618,508 806,866 34,866" fill="none" stroke="url(#edge)" stroke-width="4"/>
+  <polygon points="1002,96 1568,96 1568,868 966,868 1128,474" fill="none" stroke="url(#edge)" stroke-width="4"/>
+  <polygon points="554,92 1076,92 1302,450 1078,808 556,808 330,450" fill="none" stroke="url(#edge)" stroke-width="4"/>
+
+  <text x="86" y="134" fill="#9beeff" font-size="24" letter-spacing="7" font-family="Arial, Helvetica, sans-serif">AETHER SERIES</text>
+  <text x="1108" y="126" fill="#83efff" font-size="46" font-style="italic" font-weight="700" font-family="Arial, Helvetica, sans-serif">Skylark Flight</text>
+  <text x="1112" y="162" fill="#d8f7ff" font-size="18" letter-spacing="3.5" font-family="Arial, Helvetica, sans-serif">CONNECTED AVIATION SIMULATOR</text>
+
+  <text x="814" y="270" text-anchor="middle" fill="#effcff" font-size="30" letter-spacing="12" font-weight="700" font-family="Arial, Helvetica, sans-serif">SKYLARK</text>
+  <text x="814" y="430" text-anchor="middle" fill="#ffffff" font-size="156" font-style="italic" font-weight="900" font-family="Arial, Helvetica, sans-serif">Flight</text>
+  <text x="814" y="556" text-anchor="middle" fill="#ffffff" font-size="138" font-style="italic" font-weight="900" font-family="Arial, Helvetica, sans-serif">Simulator</text>
+  <text x="814" y="642" text-anchor="middle" fill="#e3fbff" font-size="22" letter-spacing="5" font-family="Arial, Helvetica, sans-serif">CAREER  |  MULTIPLAYER  |  FREE FLIGHT</text>
+  <text x="814" y="690" text-anchor="middle" fill="#ddf8ff" font-size="18" letter-spacing="2.6" font-family="Arial, Helvetica, sans-serif">BUILD YOUR FLEET. RACE ONLINE. LAND WITH CONFIDENCE.</text>
+
+  <g opacity="0.86">
+    <path d="M1128 528c28-14 60-16 94-4 42 14 86 10 130-13v18c-40 22-89 28-142 12-31-10-56-10-74 0-7 4-13-7-8-13z" fill="#b5f5ff"/>
+    <path d="M1138 570c18-10 42-12 66-5 25 8 52 8 80-4v13c-26 13-55 16-87 6-22-7-39-7-51-1-6 3-12-6-8-9z" fill="#e6fcff" opacity="0.78"/>
+  </g>
+</svg>

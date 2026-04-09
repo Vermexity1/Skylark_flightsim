@@ -1,0 +1,83 @@
+[
+  {
+    "id": "9aceb0fd-2582-42b9-9da5-c6c6e3d94efc",
+    "player_name": "TestPilot_223701",
+    "aircraft_type": "prop",
+    "game_mode": "free_fly",
+    "environment": "mountains",
+    "score": 1250.5,
+    "timestamp": "2026-03-27T22:37:01.435885+00:00"
+  },
+  {
+    "id": "acba1165-afb9-4f84-84ac-2ba58c89cf21",
+    "player_name": "TEST_Pilot_d14742f1",
+    "aircraft_type": "fighter",
+    "game_mode": "challenge",
+    "environment": "canyon",
+    "score": 999.5,
+    "timestamp": "2026-03-27T23:03:42.603124+00:00"
+  },
+  {
+    "id": "3ebe8f55-078e-4108-9e6f-ef5498ffd15a",
+    "player_name": "TEST_EnvFilter_a620ce67",
+    "aircraft_type": "cargo",
+    "game_mode": "challenge",
+    "environment": "city",
+    "score": 750,
+    "timestamp": "2026-03-27T23:03:43.047070+00:00"
+  },
+  {
+    "id": "d9f3ffbe-43db-4407-a1e9-600262a5ec82",
+    "player_name": "TEST_Filter_1a9b8667",
+    "aircraft_type": "glider",
+    "game_mode": "free_fly",
+    "environment": "mountains",
+    "score": 500,
+    "timestamp": "2026-03-27T23:03:42.814335+00:00"
+  },
+  {
+    "id": "4d4b2e09-ed19-44cf-b49b-42cae3f807e3",
+    "player_name": "TestPilot",
+    "aircraft_type": "prop",
+    "game_mode": "free_fly",
+    "environment": "mountains",
+    "score": 150.5,
+    "timestamp": "2026-03-27T22:35:51.510761+00:00"
+  },
+  {
+    "id": "265470ff-1f22-4c77-84f8-871da780eaa6",
+    "player_name": "LocalPilot",
+    "aircraft_type": "jet",
+    "game_mode": "challenge",
+    "environment": "canyon",
+    "score": 321.5,
+    "timestamp": "2026-03-27T23:38:45.131Z"
+  },
+  {
+    "id": "c7c7cbf5-b002-41fd-9829-84cca71de16b",
+    "player_name": "^&^",
+    "aircraft_type": "prop",
+    "game_mode": "free_fly",
+    "environment": "mountains",
+    "score": 180,
+    "timestamp": "2026-03-29T20:55:20.516Z"
+  },
+  {
+    "id": "dd146961-c444-489c-af0b-041c37d228c3",
+    "player_name": "Jathin",
+    "aircraft_type": "fighter",
+    "game_mode": "challenge",
+    "environment": "canyon",
+    "score": 0,
+    "timestamp": "2026-03-30T19:29:39.528Z"
+  },
+  {
+    "id": "31c3d3eb-ac38-4e01-84a8-1633979cf4eb",
+    "player_name": "Jathin",
+    "aircraft_type": "prop",
+    "game_mode": "challenge",
+    "environment": "canyon",
+    "score": 3547,
+    "timestamp": "2026-03-30T19:31:48.140Z"
+  }
+]

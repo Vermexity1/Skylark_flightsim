@@ -1,0 +1,88 @@
+{
+  "da36589dd9624535ebbc0dab34092e87a045cd8021907513d376867680a2a797": {
+    "userId": "500b94bc-bbde-4fba-8600-fa9d0aa8339b",
+    "createdAt": "2026-04-07T22:34:10.219Z"
+  },
+  "8b8bc8ba47185cff8a198a54cf1bfff904c335512bdbe953d4582ef101452c5d": {
+    "userId": "9c557c3d-0a5d-451f-8997-a0a1a745323e",
+    "createdAt": "2026-04-09T22:38:47.577Z"
+  },
+  "19a3cbd2fdfadc2c045c8dda28e8aecce9b610e35ebcd8c9064b29797691a29b": {
+    "userId": "78a1c1aa-1bb3-4392-b9a9-5f94a3f30374",
+    "createdAt": "2026-04-09T22:38:47.895Z"
+  },
+  "b4231858c591734acc39b5d11f16e768336680e9ed7cd8c877a836bb7248c5ee": {
+    "userId": "1a1182dd-8bce-48fc-b258-c915a2dc1694",
+    "createdAt": "2026-04-09T22:38:48.147Z"
+  },
+  "c834a0bd195dc3811b607ebe265cedb4ad5a0bda931392fa144632a45483b7f2": {
+    "userId": "1d137af8-7f14-4432-9e58-6b4e5dda8f98",
+    "createdAt": "2026-04-09T22:38:48.420Z"
+  },
+  "be385bff6f352e6b555f0733729b86678e7bcf8d3ab4d65c8df81ab8f2a103bc": {
+    "userId": "59fdc1ac-c56f-425a-b295-93c3040e7f58",
+    "createdAt": "2026-04-09T22:38:48.714Z"
+  },
+  "377d0537436fb4ab5df52479940d848088fad02c7e4df960c9b66b951bb3d9fc": {
+    "userId": "42d36dab-f2ed-4b12-b9ab-678380886c96",
+    "createdAt": "2026-04-09T22:41:10.530Z"
+  },
+  "4ad0488c70150a6ef1fc8f29e1e2028549994d10a04123a4dba5d75d249ef167": {
+    "userId": "e24a86b6-38cc-4482-9f2d-5068940e33a4",
+    "createdAt": "2026-04-09T22:41:10.715Z"
+  },
+  "8e2e38e636cf36f4d0762f1b0fc4f10eb23c3139b96202a9557b3f5bf29d28b5": {
+    "userId": "36e3f01b-3e96-4a33-a9a2-3e819acdf05c",
+    "createdAt": "2026-04-09T22:41:10.875Z"
+  },
+  "6c5138ac48b3e68600584e59afbb7ac51c97f8164a130919903e74c70e0761a2": {
+    "userId": "6ea68346-565e-4649-ac59-0e1ee8b7ea5f",
+    "createdAt": "2026-04-09T22:41:11.028Z"
+  },
+  "312408a8f7bd1026d7a9220a591762ff88c769a111687240f82f1aff5c9fb790": {
+    "userId": "86e45184-7678-47da-8f96-f3ef50c283da",
+    "createdAt": "2026-04-09T22:41:11.173Z"
+  },
+  "96b24b38ca7fd1a19e18fc1e00ffbeb4290f8546b8890e3a67f71dbaba482032": {
+    "userId": "757b8339-ca9d-4c61-9bed-93c1b75a42d8",
+    "createdAt": "2026-04-09T22:46:07.176Z"
+  },
+  "aa45da312a8cb7bb030d5ba32a1a880cf3ca9fdd5c8273c8622fd2784693068f": {
+    "userId": "a2e33e2b-2035-436f-9f39-3eb3248d49b4",
+    "createdAt": "2026-04-09T22:46:07.216Z"
+  },
+  "6c91d81e88d3013adaf7b5167c4640ef8ede43855dae1a05afa43a17056651fe": {
+    "userId": "f9deca5f-045e-46de-bd1a-55506dc8c5bf",
+    "createdAt": "2026-04-09T22:47:46.362Z"
+  },
+  "dc2b36d185bee0c5ea791f7bfcb74f9ddc6922b97aacc03b798b3cfaf77155b5": {
+    "userId": "ab3fbb30-bda9-43e3-bf88-5239a53ed88b",
+    "createdAt": "2026-04-09T22:47:46.403Z"
+  },
+  "8cb40c4a65170152621bdc222759cfb130665fb5d37373b7928c2a3727c230dc": {
+    "userId": "578bb412-f03e-437b-8817-371cd571a829",
+    "createdAt": "2026-04-09T22:49:01.693Z"
+  },
+  "49edea48e31318d9485e336dda2b74c418b91d23d5c0b0248cf3cde522ed44d4": {
+    "userId": "578bb412-f03e-437b-8817-371cd571a829",
+    "createdAt": "2026-04-09T22:51:12.103Z"
+  },
+  "548fa45d835cb49489ea262171c7e4d91cbaedb7327b95c442eb744d727722fc": {
+    "userId": "483cd6d0-05c6-482b-b21b-9152fb3ab1ea",
+    "createdAt": "2026-04-09T22:51:12.162Z"
+  },
+  "abbac0a8ea524fbe5e82a873c08cbd7332cfb610e05cd792424f6bbaea0297fc": {
+    "userId": "483cd6d0-05c6-482b-b21b-9152fb3ab1ea",
+    "createdAt": "2026-04-09T22:51:12.185Z",
+    "impersonatedBy": "578bb412-f03e-437b-8817-371cd571a829"
+  },
+  "a877c0576b0893e59f09a275fcf84c5c1505eda1a4e3569fe20168f94c7300d5": {
+    "userId": "578bb412-f03e-437b-8817-371cd571a829",
+    "createdAt": "2026-04-09T23:07:16.517Z"
+  },
+  "83d1477e4beadc9d049159bb400d5bc1d819ea0e7c9b846a2a3c194632efff68": {
+    "userId": "500b94bc-bbde-4fba-8600-fa9d0aa8339b",
+    "createdAt": "2026-04-09T23:08:10.794Z",
+    "impersonatedBy": "578bb412-f03e-437b-8817-371cd571a829"
+  }
+}

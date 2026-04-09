@@ -1,0 +1,134 @@
+export const ASSET_SOURCES = {
+  terrain: {
+    grass: {
+      name: 'Aerial Grass Rock',
+      provider: 'Local Assets',
+      page: '',
+      files: {
+        color: '/assets/textures/grass/aerial_grass_rock_diff_2k.jpg',
+        normal: '/assets/textures/grass/aerial_grass_rock_nor_gl_2k.jpg',
+        roughness: '/assets/textures/grass/aerial_grass_rock_rough_2k.jpg',
+      },
+    },
+    dirt: {
+      name: 'Red Dirt Mud',
+      provider: 'Local Assets',
+      page: '',
+      files: {
+        color: '/assets/textures/dirt/red_dirt_mud_01_diff_2k.jpg',
+        normal: '/assets/textures/dirt/red_dirt_mud_01_nor_gl_2k.jpg',
+        roughness: '/assets/textures/dirt/red_dirt_mud_01_rough_2k.jpg',
+      },
+    },
+    rock: {
+      name: 'Gray Rocks',
+      provider: 'Local Assets',
+      page: '',
+      files: {
+        color: '/assets/textures/rock/gray_rocks_diff_2k.jpg',
+        normal: '/assets/textures/rock/gray_rocks_nor_gl_2k.jpg',
+        roughness: '/assets/textures/rock/gray_rocks_rough_2k.jpg',
+      },
+    },
+    runway: {
+      name: 'Asphalt 02',
+      provider: 'Local Assets',
+      page: '',
+      files: {
+        color: '/assets/textures/asphalt/asphalt_02_diff_2k.jpg',
+        normal: '/assets/textures/asphalt/asphalt_02_nor_gl_2k.jpg',
+        roughness: '/assets/textures/asphalt/asphalt_02_rough_2k.jpg',
+      },
+    },
+    cityRoad: {
+      name: 'Asphalt 02',
+      provider: 'Local Assets',
+      page: '',
+      files: {
+        color: '/assets/textures/asphalt/asphalt_02_diff_2k.jpg',
+        normal: '/assets/textures/asphalt/asphalt_02_nor_gl_2k.jpg',
+        roughness: '/assets/textures/asphalt/asphalt_02_rough_2k.jpg',
+      },
+    },
+  },
+  sky: {
+    background: {
+      name: 'Clear Sky',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/sky/clear_sky_generated.jpg',
+    },
+  },
+  effects: {
+    explosion: {
+      file: '/assets/Effects/Explosion.png',
+    },
+    smoke: {
+      file: '/assets/Effects/Smoke.png',
+    },
+  },
+  scenery: {
+    tree: {
+      name: 'Tree',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/Trees/tree.fbx',
+    },
+  },
+  aircraft: {
+    jet: {
+      name: 'Private Jet',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/Models/private_jet.glb',
+      targetLength: 13,
+      rotationY: 0,
+      offsetY: 0,
+    },
+    fighter: {
+      name: 'F-16 Low Poly',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/Models/f16_low_poly.glb',
+      targetLength: 15,
+      rotationY: 0,
+      offsetY: 0,
+    },
+    stunt: {
+      name: 'Sukhoi SU-35',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/Models/sukhoi_su-35_flanker-e__-35.glb',
+      targetLength: 21,
+      rotationY: 0,
+      offsetY: 0,
+    },
+    cargo: {
+      name: 'Cargo Plane',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/Models/cargo_plane.glb',
+      targetLength: 30,
+      rotationY: 0,
+      offsetY: 0,
+    },
+    airliner: {
+      name: '737 MAX',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/Models/737_max_lion_air.glb',
+      targetLength: 42,
+      rotationY: 0,
+      offsetY: 0,
+    },
+    raptor: {
+      name: 'F-22 Raptor',
+      provider: 'Local Assets',
+      page: '',
+      file: '/assets/Models/low_poly_11_usaf_f22a_raptor.glb',
+      targetLength: 19,
+      rotationY: 0,
+      offsetY: 0,
+    },
+  },
+};
