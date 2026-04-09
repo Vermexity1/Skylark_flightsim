@@ -189,6 +189,17 @@ app.get('/api', (req, res) => {
   res.json({ message: 'Flight Simulator API' });
 });
 
+app.get('/api/health', async (req, res) => {
+  const storageHealth = await storage.checkStorageHealth();
+  res.status(storageHealth.ok ? 200 : 503).json({
+    ok: storageHealth.ok,
+    storage: storageHealth.storage,
+    mongoConfigured: storageHealth.mongoConfigured,
+    dbName: storageHealth.dbName,
+    error: storageHealth.error ?? null,
+  });
+});
+
 app.get('/api/leaderboard', async (req, res) => {
   try {
     const scores = await storage.listScores();

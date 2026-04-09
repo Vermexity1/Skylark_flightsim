@@ -235,8 +235,39 @@ async function deleteSession(token) {
   writeJson(SESSIONS_FILE, sessions);
 }
 
+async function checkStorageHealth() {
+  try {
+    if (!isMongoConfigured()) {
+      return {
+        ok: true,
+        storage: 'local',
+        mongoConfigured: false,
+        dbName: dbName(),
+      };
+    }
+
+    const db = await getMongoDb();
+    await db.command({ ping: 1 });
+    return {
+      ok: true,
+      storage: 'mongo',
+      mongoConfigured: true,
+      dbName: dbName(),
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      storage: isMongoConfigured() ? 'mongo' : 'local',
+      mongoConfigured: isMongoConfigured(),
+      dbName: dbName(),
+      error: error.message,
+    };
+  }
+}
+
 module.exports = {
   isMongoConfigured,
+  checkStorageHealth,
   listScores,
   createScore,
   findUserByUsernameKey,
