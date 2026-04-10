@@ -453,7 +453,7 @@
       Take Flight
     </h1>
     <p id="menu-subtitle" style="font-size:14px; color:#99c7ea; margin-bottom:22px; line-height:1.6;">
-      Browser-based 3D flight simulator.<br/>Six aircraft · Five environments · Full physics.
+      Browser-based 3D flight simulator.<br/>Eleven aircraft · Six environments · Full physics.
     </p>
     <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:28px;">
       <div class="card" style="padding:10px 14px; background:rgba(12,28,52,0.64); border-color:rgba(98,200,255,0.14); font-size:11px; color:#d8efff;">Procedural terrain</div>
@@ -480,9 +480,9 @@
     </div>
 
     <div style="margin-top:32px; display:flex; gap:14px; justify-content:center; flex-wrap:wrap;">
-      <div style="font-size:10px; color:#73a7cf; letter-spacing:1px;">8 AIRCRAFT</div>
+      <div style="font-size:10px; color:#73a7cf; letter-spacing:1px;">11 AIRCRAFT</div>
       <div style="font-size:10px; color:#3a4a5a;">·</div>
-      <div style="font-size:10px; color:#3a4a5a; letter-spacing:1px;">5 ENVIRONMENTS</div>
+      <div style="font-size:10px; color:#3a4a5a; letter-spacing:1px;">6 ENVIRONMENTS</div>
       <div style="font-size:10px; color:#3a4a5a;">·</div>
       <div style="font-size:10px; color:#3a4a5a; letter-spacing:1px;">REAL PHYSICS</div>
     </div>
@@ -922,7 +922,7 @@
   import { DamageSystem } from './src/systems/DamageSystem.js';
   import { CareerSystem } from './src/systems/CareerSystem.js';
   import { AircraftModels } from './src/aircraft/AircraftModels.js';
-  import { AIRCRAFT, ENVIRONMENTS, CONTROLS, RACE } from './src/config.js';
+  import { AIRCRAFT, AIRCRAFT_STAT_MAX, ENVIRONMENTS, CONTROLS, RACE } from './src/config.js';
   import { ASSET_SOURCES } from './src/assets/AssetCatalog.js';
 
   // ── Constants ────────────────────────────────────────────
@@ -1142,7 +1142,7 @@
     const ownedPlanes = new Set(careerStore.getState().ownedPlanes);
     aircraftGrid.innerHTML = Object.entries(aircraftCatalog).map(([key, cfg]) => {
       const stats = cfg.stats;
-      const bar = (v) => `<div class="stat-bar"><div class="stat-fill" style="width:${v*20}%"></div></div>`;
+      const bar = (v) => `<div class="stat-bar"><div class="stat-fill" style="width:${Math.min(100, (v / AIRCRAFT_STAT_MAX) * 100)}%"></div></div>`;
       const owned = key === 'custom_upload' || ownedPlanes.has(key);
       return `
         <div class="sel-card ${key === sel.aircraft ? 'active' : ''}" id="ac-${key}" onclick="App.selectAircraft('${key}')">
@@ -1391,7 +1391,7 @@
         meta.innerHTML = `
           Condition <span style="color:${selected.condition >= 80 ? '#7cf0d4' : selected.condition >= 45 ? '#ffd36a' : '#ff7e90'};">${selected.condition}%</span><br/>
           ${selected.owned ? 'Licensed for non-free modes' : 'License required for Challenge and Race modes'}<br/>
-          Stats SPD ${selected.stats.speed}/5 · AGI ${selected.stats.agility}/5 · STA ${selected.stats.stability}/5<br/>
+          Stats SPD ${selected.stats.speed}/${AIRCRAFT_STAT_MAX} · AGI ${selected.stats.agility}/${AIRCRAFT_STAT_MAX} · STA ${selected.stats.stability}/${AIRCRAFT_STAT_MAX}<br/>
           Repair ${repairCost > 0 ? `$${repairCost.toLocaleString()}` : 'not needed'} · Free Flight launches at 100% health
         `;
       }
@@ -1439,7 +1439,7 @@
           <div style="height:8px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,0.08); margin-bottom:14px;">
             <div style="height:100%; width:${item.condition}%; background:linear-gradient(90deg, ${color}, #dff7ff);"></div>
           </div>
-          <div style="font-size:11px; color:#9fc7e7; margin-bottom:12px;">Repair Cost: ${repairCost > 0 ? `$${repairCost.toLocaleString()}` : 'None'} · AGI ${item.stats.agility}/5</div>
+          <div style="font-size:11px; color:#9fc7e7; margin-bottom:12px;">Repair Cost: ${repairCost > 0 ? `$${repairCost.toLocaleString()}` : 'None'} · AGI ${item.stats.agility}/${AIRCRAFT_STAT_MAX}</div>
           <div style="display:flex; gap:8px;">
             <button class="btn btn-ghost" onclick="event.stopPropagation(); App.openRepairBay('${item.type}')" style="flex:1; padding:10px 12px; font-size:12px;" ${item.condition >= 100 ? 'disabled' : ''}>Repair</button>
             <button class="btn ${item.owned ? 'btn-primary' : 'btn-accent'}" onclick="event.stopPropagation(); App.${item.owned ? `selectAircraft('${item.type}'); App.showSelect();` : `buyPlane('${item.type}')`}" style="flex:1; padding:10px 12px; font-size:12px;">${item.owned ? 'Fly' : 'Buy'}</button>

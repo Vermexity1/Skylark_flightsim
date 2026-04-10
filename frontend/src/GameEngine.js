@@ -480,10 +480,10 @@ export class GameEngine {
 
   _getTargetPixelRatio(quality = 'auto') {
     switch (quality) {
-      case 'performance': return Math.min(0.82, this._basePixelRatio);
-      case 'balanced': return Math.min(1.32, this._basePixelRatio);
-      case 'quality': return this._basePixelRatio;
-      default: return Math.min(1.18, this._basePixelRatio);
+      case 'performance': return Math.min(0.92, this._basePixelRatio);
+      case 'balanced': return Math.min(1.45, this._basePixelRatio);
+      case 'quality': return Math.min(1.9, this._basePixelRatio);
+      default: return Math.min(1.24, this._basePixelRatio);
     }
   }
 

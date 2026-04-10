@@ -23,6 +23,9 @@ export class AircraftModels {
       case 'cargo':   return AircraftModels._createCargo(config);
       case 'airliner': return AircraftModels._createJet(config);
       case 'raptor': return AircraftModels._createFighter(config);
+      case 'mustang': return AircraftModels._createMustang(config);
+      case 'concorde': return AircraftModels._createConcorde(config);
+      case 'blackbird': return AircraftModels._createBlackbird(config);
       case 'custom_upload': return AircraftModels._createJet(config);
       default:        return AircraftModels._createProp(config);
       }
@@ -653,6 +656,158 @@ export class AircraftModels {
       wheel.rotation.y = Math.PI / 2;
       g.add(wheel);
     });
+
+    this._applyShading(g);
+    return g;
+  }
+
+  static _createMustang(cfg) {
+    const g = new THREE.Group();
+    const mat = this._glossMat(cfg.color);
+    const acc = this._glossMat(cfg.accentColor);
+    const dark = this._mat(0x1f2328, false);
+
+    const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.34, 7.8, 10), mat);
+    fuselage.rotation.x = Math.PI / 2;
+    g.add(fuselage);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.8, 10), mat);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.z = -4.7;
+    g.add(nose);
+
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.48, 12, 8), this._glossMat(0x89a5bf));
+    canopy.scale.set(0.9, 0.55, 1.45);
+    canopy.position.set(0, 0.42, -0.3);
+    g.add(canopy);
+
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.14, 1.9), mat);
+    wing.position.set(0, -0.04, 0.08);
+    g.add(wing);
+
+    const wingStripe = new THREE.Mesh(new THREE.BoxGeometry(10.1, 0.05, 0.38), acc);
+    wingStripe.position.set(0, 0.03, -0.28);
+    g.add(wingStripe);
+
+    const tailPlane = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.1, 0.9), mat);
+    tailPlane.position.set(0, 0.1, 3.05);
+    g.add(tailPlane);
+
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.35, 1.15), mat);
+    fin.position.set(0, 0.72, 2.82);
+    g.add(fin);
+
+    const propHub = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.25, 10), dark);
+    propHub.rotation.x = Math.PI / 2;
+    propHub.position.z = -5.18;
+    g.add(propHub);
+
+    const propGroup = new THREE.Group();
+    propGroup.name = 'propeller';
+    propGroup.position.z = -5.28;
+    for (let i = 0; i < 4; i++) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.35, 0.05), dark);
+      blade.position.y = 0.66;
+      blade.rotation.z = (i / 4) * Math.PI * 2;
+      propGroup.add(blade);
+    }
+    g.add(propGroup);
+
+    this._applyShading(g);
+    return g;
+  }
+
+  static _createConcorde(cfg) {
+    const g = new THREE.Group();
+    const mat = this._glossMat(cfg.color);
+    const accent = this._mat(cfg.accentColor, false);
+    const dark = this._mat(0x243447, false);
+
+    const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.38, 16.5, 12), mat);
+    fuselage.rotation.x = Math.PI / 2;
+    g.add(fuselage);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.44, 4.2, 10), mat);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.z = -10.2;
+    g.add(nose);
+
+    const deltaWing = new THREE.Mesh(new THREE.BoxGeometry(14.5, 0.14, 4.5), mat);
+    deltaWing.scale.set(1, 1, 0.7);
+    deltaWing.position.set(0, -0.04, 0.45);
+    g.add(deltaWing);
+
+    const intakeLeft = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.52, 4.8), dark);
+    intakeLeft.position.set(-1.55, -0.42, 1.2);
+    const intakeRight = intakeLeft.clone();
+    intakeRight.position.x *= -1;
+    g.add(intakeLeft, intakeRight);
+
+    const tailPlane = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.08, 0.7), mat);
+    tailPlane.position.set(0, 0.08, 6.0);
+    g.add(tailPlane);
+
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.1, 2.15, 2.2), mat);
+    fin.position.set(0, 1.1, 5.65);
+    g.add(fin);
+
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 11.8), accent);
+    stripe.position.set(0, 0.22, -0.6);
+    g.add(stripe);
+
+    this._applyShading(g);
+    return g;
+  }
+
+  static _createBlackbird(cfg) {
+    const g = new THREE.Group();
+    const mat = this._glossMat(cfg.color);
+    const accent = this._glossMat(cfg.accentColor);
+    const dark = this._mat(0x090c10, false);
+
+    const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.42, 14.5, 12), mat);
+    fuselage.rotation.x = Math.PI / 2;
+    g.add(fuselage);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.42, 3.8, 12), mat);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.z = -9.1;
+    g.add(nose);
+
+    const chineLeft = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.12, 7.4), mat);
+    chineLeft.position.set(-1.65, 0.06, -1.0);
+    chineLeft.rotation.y = -0.22;
+    const chineRight = chineLeft.clone();
+    chineRight.position.x *= -1;
+    chineRight.rotation.y *= -1;
+    g.add(chineLeft, chineRight);
+
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(12.8, 0.16, 2.8), mat);
+    wing.position.set(0, -0.08, 1.0);
+    g.add(wing);
+
+    const nacelleLeft = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.38, 5.8, 8), dark);
+    nacelleLeft.rotation.x = Math.PI / 2;
+    nacelleLeft.position.set(-2.25, -0.35, 0.95);
+    const nacelleRight = nacelleLeft.clone();
+    nacelleRight.position.x *= -1;
+    g.add(nacelleLeft, nacelleRight);
+
+    const finLeft = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.95, 1.7), mat);
+    finLeft.position.set(-0.82, 1.02, 4.55);
+    finLeft.rotation.z = -0.12;
+    const finRight = finLeft.clone();
+    finRight.position.x *= -1;
+    finRight.rotation.z *= -1;
+    g.add(finLeft, finRight);
+
+    const tailPlane = new THREE.Mesh(new THREE.BoxGeometry(4.8, 0.08, 0.88), mat);
+    tailPlane.position.set(0, 0.02, 5.25);
+    g.add(tailPlane);
+
+    const accentLine = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 8.2), accent);
+    accentLine.position.set(0, 0.18, -0.4);
+    g.add(accentLine);
 
     this._applyShading(g);
     return g;

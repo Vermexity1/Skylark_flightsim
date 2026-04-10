@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { AIRCRAFT, CHALLENGE, RACE } from '../config.js';
 import { AircraftModels } from '../aircraft/AircraftModels.js';
 
-const AI_TYPES = ['prop', 'jet', 'fighter', 'stunt', 'raptor', 'glider', 'cargo'];
+const AI_TYPES = ['prop', 'jet', 'fighter', 'stunt', 'mustang', 'glider', 'cargo', 'blackbird', 'concorde', 'raptor'];
 
 export class RaceSystem {
   constructor(scene, world, careerSystem) {

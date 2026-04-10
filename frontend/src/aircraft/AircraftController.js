@@ -156,7 +156,7 @@ export class AircraftController {
       this.throttle + input.throttle * dt * 0.5, 0, 1
     );
     if (input.brake) {
-      this.throttle = Math.max(0, this.throttle - dt * 2.2);
+      this.throttle = Math.max(0, this.throttle - dt * 3.4);
     }
 
     // ── Boost ────────────────────────────────────────────────
@@ -356,10 +356,14 @@ export class AircraftController {
     }
 
     if (input.brake && this.nearGround) {
-      const brakeDamping = 1 - Math.exp(-dt * (this.isLanded ? 12 : 6.8));
-      this.velocity.x = THREE.MathUtils.lerp(this.velocity.x, 0, brakeDamping);
-      this.velocity.z = THREE.MathUtils.lerp(this.velocity.z, 0, brakeDamping);
-      if (this.isLanded && Math.hypot(this.velocity.x, this.velocity.z) < 1.2) {
+      const surfaceSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+      const brakingAccel = (this.isLanded ? 24 : 14) + Math.max(8, this.config.stallSpeed * 0.22);
+      const nextSurfaceSpeed = Math.max(0, surfaceSpeed - brakingAccel * dt);
+      const scale = surfaceSpeed > 0.0001 ? nextSurfaceSpeed / surfaceSpeed : 0;
+      this.velocity.x *= scale;
+      this.velocity.z *= scale;
+      this.velocity.y = Math.min(this.velocity.y, 0);
+      if (this.isLanded && nextSurfaceSpeed < 0.35 && this.throttle < 0.02) {
         this.velocity.x = 0;
         this.velocity.z = 0;
       }
