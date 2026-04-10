@@ -97,23 +97,35 @@ export class AircraftModels {
     return (radial / count) * 0.75 + (spreadA + spreadB) * 0.35;
   }
 
+  static _scoreForwardAxis(points, bounds, axis) {
+    const min = bounds.min[axis];
+    const max = bounds.max[axis];
+    const span = Math.max(0.001, max - min);
+    const slice = Math.max(span * 0.12, 0.12);
+    const minScore = AircraftModels._profileModelEnd(points, axis, min, min + slice);
+    const maxScore = AircraftModels._profileModelEnd(points, axis, max - slice, max);
+    if (!Number.isFinite(minScore) || !Number.isFinite(maxScore)) {
+      return { axis, asymmetry: -Infinity, forwardSign: -1, span };
+    }
+    const asymmetry = Math.abs(maxScore - minScore) / Math.max(0.001, minScore + maxScore);
+    const forwardSign = maxScore < minScore ? 1 : -1;
+    return { axis, asymmetry, forwardSign, span };
+  }
+
   static _detectForwardVector(root) {
     const points = AircraftModels._collectModelPoints(root);
     if (points.length < 8) return new THREE.Vector3(0, 0, -1);
 
     const bounds = new THREE.Box3().setFromPoints(points);
-    const size = bounds.getSize(new THREE.Vector3());
-    const axis = size.x > size.z ? 'x' : 'z';
-    const min = bounds.min[axis];
-    const max = bounds.max[axis];
-    const slice = Math.max((max - min) * 0.14, 0.1);
-    const minScore = AircraftModels._profileModelEnd(points, axis, min, min + slice);
-    const maxScore = AircraftModels._profileModelEnd(points, axis, max - slice, max);
-    const forwardSign = maxScore < minScore ? 1 : -1;
+    const xAxis = AircraftModels._scoreForwardAxis(points, bounds, 'x');
+    const zAxis = AircraftModels._scoreForwardAxis(points, bounds, 'z');
+    const axisChoice = xAxis.asymmetry === zAxis.asymmetry
+      ? (xAxis.span > zAxis.span ? xAxis : zAxis)
+      : (xAxis.asymmetry > zAxis.asymmetry ? xAxis : zAxis);
 
-    return axis === 'x'
-      ? new THREE.Vector3(forwardSign, 0, 0)
-      : new THREE.Vector3(0, 0, forwardSign);
+    return axisChoice.axis === 'x'
+      ? new THREE.Vector3(axisChoice.forwardSign, 0, 0)
+      : new THREE.Vector3(0, 0, axisChoice.forwardSign);
   }
 
   static _hydrateDetailedModel(root, type, config) {

@@ -218,6 +218,7 @@ export class WorldManager {
     this.roadNetwork = null;
     this.raceVenue = null;
     this.desertDetails = null;
+    this.alpineOutpost = null;
     this.landingPath = null;
     this.runwayCenter = new THREE.Vector3();
     this.runwayDirection = new THREE.Vector3(0, 0, -1);
@@ -275,19 +276,26 @@ export class WorldManager {
     this._createSky();
     this._createLighting();
     this._createTerrain();
+    if (envKey === RACE.TRACK_KEY) {
+      if (this.terrain) this.terrain.visible = false;
+      if (this.terrainUnderlay) this.terrainUnderlay.visible = false;
+    }
     this._createWater();
     this._createClouds();
-    this._createRunway();
     this._setupFog();
+
+    if (envKey === RACE.TRACK_KEY) {
+      this._createRaceVenue();
+    } else {
+      this._createRunway();
+      if (envKey === 'mountains') this._createAlpineOutpost();
+    }
 
     if (envKey === 'city') {
       this._createRoadGrid();
       this._createCityBuildings();
-    } else if (envKey === RACE.TRACK_KEY) {
-      this._createForestClusters();
-      this._createRaceVenue();
     } else {
-      this._createForestClusters();
+      if (envKey !== RACE.TRACK_KEY) this._createForestClusters();
       if (envKey === 'desert') {
         this._createDesertOases();
       }
@@ -523,12 +531,12 @@ export class WorldManager {
 
   _getTerrainStyle() {
     const styles = {
-      mountains: { base: 0.28, plains: 0.22, hills: 0.94, ridges: 1.46, mountains: 2.08, valleys: 0.32, flatlands: 0.04, warpAmount: 1480 },
+      mountains: { base: 0.34, plains: 0.18, hills: 1.16, ridges: 1.84, mountains: 2.88, valleys: 0.28, flatlands: 0.02, warpAmount: 1760 },
       desert: { base: 0.18, plains: 0.22, hills: 0.42, ridges: 0.68, mountains: 0.88, valleys: 0.08, flatlands: 0.24, warpAmount: 980 },
-      coastal: { base: 0.26, plains: 0.22, hills: 0.76, ridges: 1.08, mountains: 1.58, valleys: 0.2, flatlands: 0.08, warpAmount: 1240 },
-      city: { base: 0.12, plains: 0.12, hills: 0.16, ridges: 0.2, mountains: 0.24, valleys: 0.06, flatlands: 0.64, warpAmount: 620 },
-      canyon: { base: 0.24, plains: 0.07, hills: 0.54, ridges: 1.62, mountains: 1.92, valleys: 0.6, flatlands: 0.02, warpAmount: 1340 },
-      air_race: { base: 0.22, plains: 0.22, hills: 0.48, ridges: 0.84, mountains: 1.06, valleys: 0.24, flatlands: 0.18, warpAmount: 1080 },
+      coastal: { base: 0.22, plains: 0.16, hills: 0.56, ridges: 0.82, mountains: 1.16, valleys: 0.28, flatlands: 0.12, warpAmount: 1240 },
+      city: { base: 0.08, plains: 0.08, hills: 0.12, ridges: 0.16, mountains: 0.18, valleys: 0.04, flatlands: 0.78, warpAmount: 520 },
+      canyon: { base: 0.18, plains: 0.05, hills: 0.34, ridges: 1.9, mountains: 2.28, valleys: 0.78, flatlands: 0.01, warpAmount: 1280 },
+      air_race: { base: 0.02, plains: 0.02, hills: 0.06, ridges: 0.12, mountains: 0.18, valleys: 0.04, flatlands: 0.94, warpAmount: 480 },
     };
     return styles[this.envKey] ?? styles.mountains;
   }
@@ -541,6 +549,10 @@ export class WorldManager {
       { x: -1460, z: 420, rx: 290, rz: 210, lift: 16 },
       { x: 860, z: 1320, rx: 250, rz: 180, lift: 14 },
       { x: -520, z: -1520, rx: 220, rz: 160, lift: 12 },
+      { x: 2380, z: 1820, rx: 420, rz: 280, lift: 18 },
+      { x: -2640, z: -2140, rx: 380, rz: 260, lift: 17 },
+      { x: 3120, z: -1180, rx: 240, rz: 160, lift: 10 },
+      { x: -3180, z: 980, rx: 210, rz: 150, lift: 9 },
     ];
     let best = -Infinity;
 
@@ -568,6 +580,7 @@ export class WorldManager {
 
   _terrainModeForEnvironment() {
     switch (this.envKey) {
+      case 'mountains': return 5;
       case 'desert': return 1;
       case 'coastal': return 2;
       case 'city': return 3;
@@ -597,6 +610,14 @@ export class WorldManager {
   _sampleRidgedNoise(x, z, scale, power = 2.6) {
     const ridge = 1 - Math.abs(this.noise.get(x * scale, z * scale));
     return Math.pow(Math.max(0, ridge), power);
+  }
+
+  _samplePeak(x, z, centerX, centerZ, radiusX, radiusZ, height) {
+    const dx = (x - centerX) / radiusX;
+    const dz = (z - centerZ) / radiusZ;
+    const distSq = dx * dx + dz * dz;
+    if (distSq >= 2.2) return 0;
+    return Math.exp(-distSq * 2.4) * height;
   }
 
   _sampleRawTerrainHeight(x, z) {
@@ -639,7 +660,28 @@ export class WorldManager {
     h += this.noise.get(x * 0.0032 - 7.1, z * 0.0032 + 4.4) * 20;
     h += this.noise.get(x * 0.011, z * 0.011) * 5.5;
 
-    if (this.envKey === 'desert') {
+    if (this.envKey === 'mountains') {
+      const clusteredPeaks =
+        this._samplePeak(x, z, -10400, -5400, 3600, 2400, 660) +
+        this._samplePeak(x, z, -8200, -6100, 3200, 2200, 720) +
+        this._samplePeak(x, z, -5600, -5200, 3000, 2100, 560) +
+        this._samplePeak(x, z, 5400, 4600, 3200, 2300, 620) +
+        this._samplePeak(x, z, 8400, 6200, 3600, 2600, 760) +
+        this._samplePeak(x, z, 10800, 5600, 3000, 2200, 540);
+      const scatteredPeaks =
+        this._samplePeak(x, z, -1600, 8200, 2200, 1900, 420) +
+        this._samplePeak(x, z, 2600, -9200, 2400, 1800, 470) +
+        this._samplePeak(x, z, 6800, -2600, 1800, 1600, 340) +
+        this._samplePeak(x, z, -7200, 2600, 2000, 1700, 380);
+      const basinCenterX = 8600;
+      const basinCenterZ = -7600;
+      const basinDistance = Math.hypot(x - basinCenterX, z - basinCenterZ);
+      const ringPeak = Math.exp(-Math.pow((basinDistance - 2650) / 760, 2));
+      const innerBasin = 1 - THREE.MathUtils.smoothstep(basinDistance, 860, 1680);
+      const basinFloor = 238 + this.noise.fbm(x * 0.0016 + 9.8, z * 0.0016 - 4.3, 3, 2.0, 0.5) * 16;
+      h += clusteredPeaks + scatteredPeaks + ringPeak * env.amplitude * 1.28;
+      h = THREE.MathUtils.lerp(h, basinFloor, innerBasin * 0.9);
+    } else if (this.envKey === 'desert') {
       const dunes = this.noise.fbm(x * 0.00135 + 14.4, z * 0.00135 - 6.2, 5, 2.28, 0.56) * env.amplitude * 0.28;
       const duneRipples = Math.sin(x * 0.0032 + this.noise.get(z * 0.0009, x * 0.0009) * 2.2) * 12;
       const mesas = this._sampleRidgedNoise(x + 3000, z - 2400, 0.00095, 3.8) * env.amplitude * 0.3;
@@ -655,53 +697,50 @@ export class WorldManager {
       const mainlandMask = 1 - THREE.MathUtils.smoothstep(mainlandDist + this.noise.get(x * 0.00024, z * 0.00024) * 0.16, 0.42, 1.12);
       const mainland = mainlandMask * env.amplitude * 0.5 + archipelago * env.amplitude * 0.12;
       const beachShelf = Math.max(0, islandMask * 0.7 + archipelago * 0.38 - 0.35) * 18;
-      h = Math.max(h * 0.54, shelf - 18, mainland - 14, beachShelf + (env.waterLevel ?? 0) + 4);
+      const oceanMask = THREE.MathUtils.smoothstep(coastDist + this.noise.get(x * 0.00032 - 4.2, z * 0.00032 + 2.8) * 0.2, 0.28, 0.82);
+      h = Math.max(h * 0.42, shelf - 26, mainland - 22, beachShelf + (env.waterLevel ?? 0) + 4);
+      h = THREE.MathUtils.lerp(h, (env.waterLevel ?? 0) - 34, oceanMask * 0.92);
     } else if (this.envKey === 'city') {
       const metroDist = Math.sqrt((x / 9200) ** 2 + (z / 9200) ** 2);
       const metroFlat = 1 - THREE.MathUtils.smoothstep(metroDist, 0.16, 0.92);
       h = THREE.MathUtils.lerp(h, continental * env.amplitude * 0.08 + plains * 0.42, metroFlat * 0.72);
-      h += this.noise.fbm(x * 0.001, z * 0.001, 3, 2.0, 0.45) * 14;
+      h += this.noise.fbm(x * 0.001, z * 0.001, 3, 2.0, 0.45) * 10;
     } else if (this.envKey === 'canyon') {
       const canyonCurve = Math.sin((z + 420) * 0.00022) * 1100
         + this.noise.get(z * 0.00038 + 7.6, x * 0.00018 - 4.2) * 140;
-      const canyonWidth = 360
-        + (this.noise.get(x * 0.00042 + 3.8, z * 0.00042 - 2.2) * 0.5 + 0.5) * 210;
+      const canyonWidth = 220
+        + (this.noise.get(x * 0.00042 + 3.8, z * 0.00042 - 2.2) * 0.5 + 0.5) * 120;
       const distanceToCorridor = Math.abs(x - canyonCurve);
-      const corridorMask = 1 - THREE.MathUtils.smoothstep(distanceToCorridor, canyonWidth * 0.58, canyonWidth + 25);
-      const wallRise = THREE.MathUtils.smoothstep(distanceToCorridor, canyonWidth * 0.74, canyonWidth + 380);
-      const outerWall = THREE.MathUtils.smoothstep(distanceToCorridor, canyonWidth + 120, canyonWidth + 720);
-      const canyonFloor = 108 + this.noise.fbm(x * 0.0018, z * 0.0018, 3, 2.0, 0.5) * 26;
-      const wallMass = wallRise * env.amplitude * 0.5 + outerWall * env.amplitude * 0.44;
-      h = Math.max(h + wallMass, canyonFloor + wallRise * 42);
-      h = THREE.MathUtils.lerp(h, canyonFloor, corridorMask * 0.9);
-      h += this._sampleRidgedNoise(x - 2400, z + 800, 0.00062, 3.5) * env.amplitude * 0.28;
+      const corridorMask = 1 - THREE.MathUtils.smoothstep(distanceToCorridor, canyonWidth * 0.52, canyonWidth + 8);
+      const wallRise = THREE.MathUtils.smoothstep(distanceToCorridor, canyonWidth * 0.72, canyonWidth + 260);
+      const outerWall = THREE.MathUtils.smoothstep(distanceToCorridor, canyonWidth + 60, canyonWidth + 420);
+      const canyonFloor = 92 + this.noise.fbm(x * 0.0018, z * 0.0018, 3, 2.0, 0.5) * 16;
+      const wallMass = wallRise * env.amplitude * 0.64 + outerWall * env.amplitude * 0.62;
+      h = Math.max(h + wallMass, canyonFloor + wallRise * 58);
+      h = THREE.MathUtils.lerp(h, canyonFloor, corridorMask * 0.96);
+      h += this._sampleRidgedNoise(x - 2400, z + 800, 0.00062, 3.5) * env.amplitude * 0.34;
     } else if (this.envKey === 'air_race') {
-      const bowlDist = Math.sqrt((x / 9000) ** 2 + (z / 9000) ** 2);
-      const bowlMask = 1 - THREE.MathUtils.smoothstep(bowlDist, 0.24, 1.05);
-      const circuitShelf = this.noise.fbm(x * 0.00092 + 10.6, z * 0.00092 - 17.9, 4, 2.05, 0.52) * env.amplitude * 0.18;
       const trackDistance = this._distanceToCourse(CHALLENGE.COURSES.air_race, x, z);
-      const trackMask = 1 - THREE.MathUtils.smoothstep(trackDistance, 180, 880);
-      const valleyFloor = 150 + this.noise.fbm(x * 0.0016, z * 0.0016, 3, 2.0, 0.48) * 34;
-      const ridgeRing = this._sampleRidgedNoise(x + 2400, z - 1900, 0.00058, 3.4) * env.amplitude * 0.36;
-      h = THREE.MathUtils.lerp(h + circuitShelf, h * 0.72 + circuitShelf, bowlMask * 0.46);
-      h = THREE.MathUtils.lerp(h, valleyFloor + circuitShelf * 0.4, trackMask * 0.34);
-      h += ridgeRing * (1 - trackMask * 0.45);
+      const trackMask = 1 - THREE.MathUtils.smoothstep(trackDistance, 240, 980);
+      const abyss = -920 + this.noise.fbm(x * 0.0014, z * 0.0014, 3, 2.0, 0.48) * 18;
+      h = THREE.MathUtils.lerp(h, abyss, 0.96);
+      h += trackMask * 34;
     }
 
     return h;
   }
 
   _getAirportBlend(x, z, pad = 0) {
-    const mainX = 1 - THREE.MathUtils.smoothstep(Math.abs(x), 92 + pad, 255 + pad);
-    const mainZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 200), 635 + pad, 860 + pad);
+    const mainX = 1 - THREE.MathUtils.smoothstep(Math.abs(x), 120 + pad, 320 + pad);
+    const mainZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 200), 700 + pad, 940 + pad);
     const mainStrip = mainX * mainZ;
 
-    const apronX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 145), 92 + pad, 185 + pad);
-    const apronZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 95), 75 + pad, 170 + pad);
+    const apronX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 145), 112 + pad, 205 + pad);
+    const apronZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 95), 92 + pad, 190 + pad);
     const apron = apronX * apronZ;
 
-    const taxiX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 33), 16 + pad, 52 + pad);
-    const taxiZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 160), 115 + pad, 250 + pad);
+    const taxiX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 33), 22 + pad, 72 + pad);
+    const taxiZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 160), 130 + pad, 320 + pad);
     const taxi = taxiX * taxiZ;
 
     const serviceX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 214), 35 + pad, 96 + pad);
@@ -721,16 +760,16 @@ export class WorldManager {
   }
 
   _getRunwaySafetyBlend(x, z, pad = 0) {
-    const stripX = 1 - THREE.MathUtils.smoothstep(Math.abs(x), 138 + pad, 322 + pad);
-    const stripZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 200), 760 + pad, 1120 + pad);
+    const stripX = 1 - THREE.MathUtils.smoothstep(Math.abs(x), 178 + pad, 380 + pad);
+    const stripZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 200), 840 + pad, 1320 + pad);
     const shoulders = stripX * stripZ;
 
-    const apronX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 130), 150 + pad, 265 + pad);
-    const apronZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 95), 110 + pad, 260 + pad);
+    const apronX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 130), 170 + pad, 300 + pad);
+    const apronZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 95), 132 + pad, 320 + pad);
     const apron = apronX * apronZ;
 
-    const taxiX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 33), 34 + pad, 78 + pad);
-    const taxiZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 160), 150 + pad, 320 + pad);
+    const taxiX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 33), 42 + pad, 104 + pad);
+    const taxiZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z + 160), 180 + pad, 390 + pad);
     const taxi = taxiX * taxiZ;
 
     return Math.max(shoulders, apron * 0.8, taxi * 0.7);
@@ -861,6 +900,19 @@ export class WorldManager {
     return false;
   }
 
+  checkObstacleCollisionSweep(start, end, radius = 0, extents = null) {
+    if (!start || !end) return false;
+    const travel = start.distanceTo(end);
+    const sampleStep = Math.max(6, Math.min(28, (extents ? Math.min(extents.x, extents.z) : radius || 6)));
+    const steps = Math.max(1, Math.ceil(travel / sampleStep));
+    const probe = new THREE.Vector3();
+    for (let i = 0; i <= steps; i++) {
+      probe.lerpVectors(start, end, i / steps);
+      if (this.checkObstacleCollision(probe, radius, extents)) return true;
+    }
+    return false;
+  }
+
   checkRingPass(position, radius) {
     for (let i = 0; i < this.rings.length; i++) {
       const ring = this.rings[i];
@@ -947,6 +999,11 @@ export class WorldManager {
       const z = pos.getZ(i);
       const height = this.getTerrainHeight(x, z);
       pos.setY(i, height);
+      const normalizedHeight = THREE.MathUtils.clamp(
+        (height - (env.waterLevel ?? 0)) / Math.max(1, env.amplitude * 1.4),
+        0,
+        1
+      );
 
       const macro = this.noise.get(x * 0.003, z * 0.003) * 0.1;
       const detail = this.noise.get(x * 0.02, z * 0.02) * 0.05;
@@ -958,22 +1015,28 @@ export class WorldManager {
       );
       if (this.envKey === 'desert') {
         tint.offsetHSL(0.01, -0.06, 0.08);
+      } else if (this.envKey === 'mountains') {
+        tint.lerp(new THREE.Color(0.34, 0.52, 0.29), 0.32);
+        tint.lerp(new THREE.Color(0.76, 0.78, 0.8), THREE.MathUtils.smoothstep(normalizedHeight, 0.42, 0.68) * 0.46);
+        tint.lerp(new THREE.Color(0.97, 0.98, 1.0), THREE.MathUtils.smoothstep(normalizedHeight, 0.68, 0.9) * 0.92);
       } else if (this.envKey === 'coastal') {
-        tint.offsetHSL(-0.01, 0.04, 0.02);
+        tint.offsetHSL(-0.02, 0.06, 0.06);
       } else if (this.envKey === 'canyon') {
         tint.offsetHSL(0.015 + patch * 0.08, 0.08, 0.04);
       } else if (this.envKey === 'city') {
-        tint.offsetHSL(0, -0.08, -0.02);
+        tint.offsetHSL(-0.02, -0.02, 0.03);
       }
       const neutral = this.envKey === 'desert'
         ? new THREE.Color(0.9, 0.84, 0.72)
+        : this.envKey === 'mountains'
+          ? new THREE.Color(0.84, 0.87, 0.86)
         : this.envKey === 'coastal'
           ? new THREE.Color(0.78, 0.9, 0.84)
           : this.envKey === 'city'
             ? new THREE.Color(0.74, 0.78, 0.8)
             : new THREE.Color(0.8, 0.88, 0.8);
-      tint.lerp(neutral, this.envKey === 'city' ? 0.24 : 0.18);
-      tint.multiplyScalar(this.envKey === 'city' ? 0.98 : 1.03);
+      tint.lerp(neutral, this.envKey === 'city' ? 0.18 : this.envKey === 'mountains' ? 0.08 : 0.18);
+      tint.multiplyScalar(this.envKey === 'city' ? 1.04 : this.envKey === 'mountains' ? 1.08 : 1.03);
       colors[i * 3] = tint.r;
       colors[i * 3 + 1] = tint.g;
       colors[i * 3 + 2] = tint.b;
@@ -1092,11 +1155,11 @@ export class WorldManager {
     if (this.envKey !== 'coastal') return;
     if (env.waterLevel < -150) return;
 
-    const geo = new THREE.PlaneGeometry(RENDER.TERRAIN_SIZE * 1.65, RENDER.TERRAIN_SIZE * 1.65, 8, 8);
+    const geo = new THREE.PlaneGeometry(RENDER.TERRAIN_SIZE * 2.2, RENDER.TERRAIN_SIZE * 2.2, 12, 12);
     geo.rotateX(-Math.PI / 2);
 
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x63cfe1,
+      color: this.envConfig?.waterColor ?? 0x63cfe1,
       transparent: true,
       opacity: 0.72,
       roughness: 0.16,
@@ -1106,7 +1169,7 @@ export class WorldManager {
     });
 
     this.water = new THREE.Mesh(geo, mat);
-    this.water.position.y = env.waterLevel;
+    this.water.position.y = env.waterLevel + 1.2;
     this.water.receiveShadow = true;
     this.scene.add(this.water);
 
@@ -1114,7 +1177,7 @@ export class WorldManager {
       if (!this.water) return;
       this.water.material.normalMap = set.normal;
       this.water.material.roughnessMap = set.roughness;
-      this.water.material.color.setHex(0x5ecde4);
+      this.water.material.color.setHex(this.envConfig?.waterColor ?? 0x5ecde4);
       this.water.material.needsUpdate = true;
     });
   }
@@ -1369,7 +1432,7 @@ export class WorldManager {
     });
 
     const asphalt = this._createTerrainSurface({
-      width: 48,
+      width: 56,
       depth: 1200,
       centerX: 0,
       centerZ: -200,
@@ -1381,8 +1444,8 @@ export class WorldManager {
     group.add(asphalt);
 
     const earthwork = this._createTerrainSurface({
-      width: 124,
-      depth: 1240,
+      width: 168,
+      depth: 1320,
       centerX: 0,
       centerZ: -200,
       segmentsX: 18,
@@ -1392,9 +1455,9 @@ export class WorldManager {
     });
     group.add(earthwork);
 
-    [-34, 34].forEach(x => {
+    [-42, 42].forEach(x => {
       const shoulder = this._createTerrainSurface({
-        width: 20,
+        width: 28,
         depth: 1200,
         centerX: x,
         centerZ: -200,
@@ -1406,8 +1469,8 @@ export class WorldManager {
       group.add(shoulder);
     });
 
-    const runwaySkirtLeft = this._createRunwaySkirt(-24, -1, -800, 400, 34, shoulderMaterial.clone());
-    const runwaySkirtRight = this._createRunwaySkirt(24, 1, -800, 400, 34, shoulderMaterial.clone());
+    const runwaySkirtLeft = this._createRunwaySkirt(-28, -1, -840, 440, 56, shoulderMaterial.clone());
+    const runwaySkirtRight = this._createRunwaySkirt(28, 1, -840, 440, 56, shoulderMaterial.clone());
     group.add(runwaySkirtLeft, runwaySkirtRight);
 
     const taxiway = this._createTerrainSurface({
@@ -1655,6 +1718,95 @@ export class WorldManager {
     this._createLandingPath(y);
   }
 
+  _createAlpineOutpost() {
+    if (this.envKey !== 'mountains') return;
+
+    const centerX = 8600;
+    const centerZ = -7600;
+    const group = new THREE.Group();
+    const padMaterial = new THREE.MeshStandardMaterial({
+      color: 0x6d747b,
+      roughness: 0.92,
+      metalness: 0.04,
+      envMapIntensity: 0.18,
+    });
+    const shoulderMaterial = new THREE.MeshStandardMaterial({
+      color: 0x7d7567,
+      roughness: 0.98,
+      metalness: 0.0,
+    });
+    const beaconMaterial = new THREE.MeshBasicMaterial({ color: 0x7fe7ff });
+    const hutMaterial = this._makeSolidBuildingMaterial('#808896');
+
+    const strip = this._createTerrainSurface({
+      width: 88,
+      depth: 280,
+      centerX,
+      centerZ,
+      segmentsX: 8,
+      segmentsZ: 36,
+      material: padMaterial,
+      yOffset: 0.08,
+      skirtDepth: 18,
+    });
+    const apron = this._createTerrainSurface({
+      width: 124,
+      depth: 110,
+      centerX: centerX - 112,
+      centerZ: centerZ + 18,
+      segmentsX: 10,
+      segmentsZ: 10,
+      material: shoulderMaterial,
+      yOffset: 0.05,
+      skirtDepth: 16,
+    });
+    group.add(strip, apron);
+
+    const hutFootprint = this._sampleFootprintStats(centerX - 110, centerZ + 20, 18, 14);
+    const hut = new THREE.Mesh(new THREE.BoxGeometry(34, 14, 24), hutMaterial);
+    hut.position.set(centerX - 110, hutFootprint.max + 7, centerZ + 20);
+    hut.castShadow = true;
+    hut.receiveShadow = true;
+    group.add(hut);
+    this.obstacles.push({
+      center: hut.position.clone(),
+      hx: 17,
+      hy: 7,
+      hz: 12,
+    });
+
+    for (let z = centerZ - 126; z <= centerZ + 126; z += 28) {
+      [-42, 42].forEach(xOffset => {
+        const light = new THREE.Mesh(new THREE.SphereGeometry(0.55, 8, 8), beaconMaterial);
+        light.position.set(centerX + xOffset, this.getSurfaceHeight(centerX + xOffset, z) + 0.8, z);
+        group.add(light);
+      });
+    }
+
+    Promise.all([
+      this.assets.loadTextureSet(ASSET_SOURCES.terrain.runway, 18),
+      this.assets.loadTextureSet(ASSET_SOURCES.terrain.dirt, 24),
+    ]).then(([runwaySet, dirtSet]) => {
+      [strip].forEach(surface => {
+        if (!surface?.material) return;
+        surface.material.map = runwaySet.color;
+        surface.material.normalMap = runwaySet.normal;
+        surface.material.roughnessMap = runwaySet.roughness;
+        surface.material.needsUpdate = true;
+      });
+      [apron].forEach(surface => {
+        if (!surface?.material) return;
+        surface.material.map = dirtSet.color;
+        surface.material.normalMap = dirtSet.normal;
+        surface.material.roughnessMap = dirtSet.roughness;
+        surface.material.needsUpdate = true;
+      });
+    });
+
+    this.alpineOutpost = group;
+    this.scene.add(group);
+  }
+
   _createRaceVenue() {
     const group = new THREE.Group();
     const tarmacMaterial = new THREE.MeshStandardMaterial({
@@ -1742,11 +1894,11 @@ export class WorldManager {
       0.16
     );
     const sampled = corridorCurve.getPoints(course.length * 18);
-    const corridorWidth = 520;
-    const corridorHeight = 300;
-    const wallThickness = 32;
-    const floorThickness = 16;
-    const deckHeight = 336;
+    const corridorWidth = 680;
+    const corridorHeight = 360;
+    const wallThickness = 48;
+    const floorThickness = 18;
+    const deckHeight = 382;
 
     const paddock = this._createTerrainSurface({
       width: 380,
@@ -1794,6 +1946,25 @@ export class WorldManager {
       minZ: 1805,
       maxZ: 2035,
       sampleHeight: () => deckHeight + 8,
+    });
+
+    [
+      { x: -330, y: deckHeight + 60, z: 1930, w: 18, h: 120, d: 250 },
+      { x: 330, y: deckHeight + 60, z: 1930, w: 18, h: 120, d: 250 },
+      { x: 0, y: deckHeight + 54, z: 2050, w: 678, h: 108, d: 18 },
+    ].forEach(spec => {
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(spec.w, spec.h, spec.d), standMaterial.clone());
+      wall.position.set(spec.x, spec.y, spec.z);
+      wall.castShadow = true;
+      wall.receiveShadow = true;
+      group.add(wall);
+      this.obstacles.push({
+        center: wall.position.clone(),
+        hx: spec.w * 0.5,
+        hy: spec.h * 0.5,
+        hz: spec.d * 0.5,
+        alwaysCollide: true,
+      });
     });
 
     [-1, 1].forEach(side => {
@@ -1920,7 +2091,7 @@ export class WorldManager {
       );
       laneStrip.castShadow = false;
 
-      if (i % 4 === 0) {
+      if (i % 2 === 0) {
         const chevron = new THREE.Mesh(new THREE.PlaneGeometry(104, 42), chevronMaterial.clone());
         chevron.position.set(center.x, laneY - corridorHeight * 0.5 + floorThickness * 0.5 + 7.5, center.z);
         chevron.rotation.x = -Math.PI * 0.49;
@@ -1999,6 +2170,8 @@ export class WorldManager {
       });
     });
 
+    this.runwayCenter.set(0, deckHeight + 8, 1910);
+    this.runwayDirection.copy(new THREE.Vector3(course[0].x, 0, course[0].z - 1910).normalize());
     this.raceVenue = group;
     this.scene.add(group);
   }
@@ -2090,7 +2263,7 @@ export class WorldManager {
   }
 
   _getCityRoadBands() {
-    return [-4420, -3560, -2840, -2180, -1510, -840, -140, 620, 1410, 2260, 3160, 4090];
+    return [-4680, -3980, -3360, -2760, -2200, -1680, -1180, -640, -60, 560, 1220, 1940, 2720, 3560, 4440];
   }
 
   _createRoadGrid() {
@@ -2127,7 +2300,7 @@ export class WorldManager {
       segmentsZ: 54,
       material: lotMaterial.clone(),
       yOffset: 0.025,
-      skirtDepth: 18,
+      skirtDepth: 36,
     });
     group.add(cityFoundation);
 
@@ -2288,6 +2461,7 @@ export class WorldManager {
           segmentsZ: 4,
           material: lotMaterial,
           yOffset: 0.055,
+          skirtDepth: 22,
         });
         group.add(lot);
       }
@@ -2322,16 +2496,17 @@ export class WorldManager {
     const roadWidth = 34;
     const roadBands = this._getCityRoadBands();
     const specs = [
-      { w: 44, d: 44, h: 260, jitter: 132, material: this._makeGlassMaterial('#54637c') },
-      { w: 58, d: 40, h: 176, jitter: 86, material: this._makeGlassMaterial('#5d547c') },
-      { w: 36, d: 34, h: 102, jitter: 58, material: this._makeSolidBuildingMaterial('#70819a') },
-      { w: 56, d: 26, h: 34, jitter: 62, material: this._makeSolidBuildingMaterial('#62708a') },
-      { w: 72, d: 30, h: 18, jitter: 68, material: this._makeSolidBuildingMaterial('#516274') },
+      { w: 44, d: 44, h: 320, jitter: 132, material: this._makeGlassMaterial('#54637c') },
+      { w: 58, d: 40, h: 220, jitter: 94, material: this._makeGlassMaterial('#5d547c') },
+      { w: 42, d: 32, h: 146, jitter: 72, material: this._makeSolidBuildingMaterial('#70819a') },
+      { w: 32, d: 26, h: 84, jitter: 62, material: this._makeSolidBuildingMaterial('#647790') },
+      { w: 56, d: 26, h: 40, jitter: 62, material: this._makeSolidBuildingMaterial('#62708a') },
+      { w: 72, d: 30, h: 22, jitter: 68, material: this._makeSolidBuildingMaterial('#516274') },
     ];
 
     specs.forEach((spec, specIndex) => {
       const geometry = new THREE.BoxGeometry(spec.w, 1, spec.d);
-      const mesh = new THREE.InstancedMesh(geometry, spec.material, 190);
+      const mesh = new THREE.InstancedMesh(geometry, spec.material, 320);
       let instanceIndex = 0;
 
       for (let gx = 0; gx < roadBands.length - 1; gx++) {
@@ -2343,7 +2518,7 @@ export class WorldManager {
           if (parkBlock) continue;
 
           const density = (this.noise.get(gx * 1.4 + specIndex * 4.2, gz * 1.4 - specIndex * 3.6) + 1) * 0.5;
-          const threshold = specIndex === 0 ? 0.38 : specIndex === 1 ? 0.18 : specIndex === 2 ? 0.08 : 0.06;
+          const threshold = specIndex === 0 ? 0.28 : specIndex === 1 ? 0.12 : specIndex === 2 ? 0.02 : specIndex === 3 ? 0.0 : 0.04;
           if (density < threshold) continue;
 
           const blockWidth = Math.max(70, roadBands[gx + 1] - roadBands[gx] - roadWidth - 18);
@@ -2391,8 +2566,8 @@ export class WorldManager {
     const crown = new THREE.InstancedMesh(new THREE.ConeGeometry(2.8, 6.4, 7), leavesMat, 480);
     const heroPlacements = [];
     const profile = {
-      mountains: { clusters: 42, clusterRadius: 120, minTrees: 10, maxTrees: 18 },
-      coastal: { clusters: 52, clusterRadius: 128, minTrees: 10, maxTrees: 19 },
+      mountains: { clusters: 46, clusterRadius: 132, minTrees: 10, maxTrees: 18 },
+      coastal: { clusters: 44, clusterRadius: 128, minTrees: 8, maxTrees: 16 },
       desert: { clusters: 12, clusterRadius: 78, minTrees: 3, maxTrees: 6 },
       canyon: { clusters: 0, clusterRadius: 0, minTrees: 0, maxTrees: 0 },
       air_race: { clusters: 28, clusterRadius: 88, minTrees: 6, maxTrees: 10 },
@@ -2405,6 +2580,7 @@ export class WorldManager {
       const cz = (Math.random() - 0.5) * RENDER.TERRAIN_SIZE * 0.78;
       if (this._isAirportZone(cx, cz, 180)) continue;
       if (this._isRaceTrackZone(cx, cz, 240)) continue;
+      if (this.envKey === 'mountains' && Math.hypot(cx - 8600, cz + 7600) < 2500) continue;
 
       const treesInCluster = profile.minTrees + Math.floor(Math.random() * Math.max(1, profile.maxTrees - profile.minTrees + 1));
       for (let i = 0; i < treesInCluster && count < 460; i++) {
@@ -2412,6 +2588,7 @@ export class WorldManager {
         const z = cz + (Math.random() - 0.5) * profile.clusterRadius;
         if (this._isAirportZone(x, z, 110)) continue;
         if (this._isRaceTrackZone(x, z, 140)) continue;
+        if (this.envKey === 'mountains' && Math.hypot(x - 8600, z + 7600) < 1900) continue;
         const terrainY = this.getSurfaceHeight(x, z);
         const waterMargin = (this.envConfig?.waterLevel ?? -200) + (this.envKey === 'coastal' ? 5.5 : 1.8);
         if (terrainY <= waterMargin) continue;
@@ -2623,6 +2800,7 @@ export class WorldManager {
     dispose(this.roadNetwork); this.roadNetwork = null;
     dispose(this.raceVenue); this.raceVenue = null;
     dispose(this.desertDetails); this.desertDetails = null;
+    dispose(this.alpineOutpost); this.alpineOutpost = null;
     dispose(this.landingPath); this.landingPath = null;
 
     [this.sun, this.sunGlow, this.sunTarget, this.hemisphereLight, this.ambientLight].forEach(light => {

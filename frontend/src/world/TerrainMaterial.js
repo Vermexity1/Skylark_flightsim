@@ -15,6 +15,7 @@ const DEFAULT_NORMAL = createSolidTexture(128, 128, 255, THREE.NoColorSpace);
 const DEFAULT_ROUGHNESS = createSolidTexture(214, 214, 214, THREE.NoColorSpace);
 
 function pickTextureSet(textureSets, terrainMode) {
+  if (terrainMode === 5) return textureSets.rock ?? textureSets.grass ?? textureSets.dirt;
   if (terrainMode === 1 || terrainMode === 4) return textureSets.dirt ?? textureSets.rock ?? textureSets.grass;
   if (terrainMode === 2) return textureSets.grass ?? textureSets.dirt ?? textureSets.rock;
   if (terrainMode === 3) return textureSets.grass ?? textureSets.rock ?? textureSets.dirt;

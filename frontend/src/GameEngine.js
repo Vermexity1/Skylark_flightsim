@@ -139,6 +139,7 @@ export class GameEngine {
 
     this.aircraft.getTerrainHeight = (x, z) => this.world.getSurfaceHeight(x, z);
     this.aircraft.checkObstacleHit = (pos, radius = 0, extents = null) => this.world.checkObstacleCollision(pos, radius, extents);
+    this.aircraft.checkObstacleSweep = (start, end, radius = 0, extents = null) => this.world.checkObstacleCollisionSweep(start, end, radius, extents);
     this.aircraft.waterLevel = this.world.envConfig?.waterLevel ?? -200;
     this.aircraft.setConditionPenaltyEnabled(gameMode !== 'free_fly');
     this.aircraft.loadAircraft(aircraftType);

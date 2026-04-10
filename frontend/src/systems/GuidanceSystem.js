@@ -186,18 +186,19 @@ export class GuidanceSystem {
       this.status.landingAdviceTone = 'warn';
       return false;
     }
+
     const next = !!enabled;
     if (!next) {
       this.autoLandEnabled = false;
       this.awaitingTargetSelection = false;
       this.autoStage = 'idle';
       this.autoPlan = null;
-    this.status.autoLandEnabled = false;
-    this.status.awaitingLandingTarget = false;
-    this.status.autoLandStage = 'IDLE';
-    this.status.autoLandAllowed = this.autoLandAllowed;
-    return false;
-  }
+      this.status.autoLandEnabled = false;
+      this.status.awaitingLandingTarget = false;
+      this.status.autoLandStage = 'IDLE';
+      this.status.autoLandAllowed = this.autoLandAllowed;
+      return false;
+    }
 
     if (!this.landingTarget) {
       this.awaitingTargetSelection = true;
@@ -265,6 +266,7 @@ export class GuidanceSystem {
       desiredHeading: Math.atan2(landingDirection.x, landingDirection.z),
       lastDistance: horizontalDistance,
       targetSpeed: {
+        stabilize: THREE.MathUtils.clamp((flightState.stallSpeed ?? 20) * 0.82, 14, 34),
         halt: 0,
         align: 0,
         approach: THREE.MathUtils.clamp((flightState.stallSpeed ?? 20) * 0.9, 20, 48),

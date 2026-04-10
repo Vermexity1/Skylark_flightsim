@@ -719,7 +719,7 @@
 <div id="screen-hangar" class="screen" style="display:none; z-index:22;">
   <div style="position:relative; z-index:1; width:100%; max-width:1180px; max-height:min(88vh,860px); overflow:auto; padding:20px;">
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap;">
-      <button class="btn btn-ghost" onclick="App.showMenu()" style="padding:8px 16px; font-size:12px;">â† Back</button>
+      <button class="btn btn-ghost" onclick="App.showMenu()" style="padding:8px 16px; font-size:12px;">&lt; Back</button>
       <h2 style="font-size:18px; font-weight:700; letter-spacing:2px;">GARAGE</h2>
       <div id="garage-header-money" style="font-size:12px; color:#8edbff; letter-spacing:1px;"></div>
     </div>
@@ -2413,7 +2413,6 @@
         toast('Enter a username and password', 1800);
         return;
       }
-      const splashRun = showSplash('Signing in pilot profile', 0.24, { minDuration: 2600 });
       try {
         const resp = await fetch(`${API_BASE}/auth/login`, {
           method: 'POST',
@@ -2422,15 +2421,12 @@
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data?.error || 'Sign in failed');
-        setSplashProgress(0.72, 'Syncing pilot profile');
         applySignedInSession(data);
         await syncProfileNow(false);
         await loadAdminUsers(false);
         this.showMenu();
-        hideSplash(splashRun, 260);
         toast(`Signed in as ${data.user.username}`, 1800);
       } catch (error) {
-        hideSplash(splashRun, 120);
         toast(error.message || 'Cannot sign in', 2200);
       }
     },
@@ -2441,7 +2437,6 @@
         toast('Enter a username and password', 1800);
         return;
       }
-      const splashRun = showSplash('Creating pilot account', 0.2, { minDuration: 2800 });
       try {
         const resp = await fetch(`${API_BASE}/auth/signup`, {
           method: 'POST',
@@ -2450,15 +2445,12 @@
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data?.error || 'Account creation failed');
-        setSplashProgress(0.74, 'Provisioning hangar and profile');
         applySignedInSession(data);
         await syncProfileNow(false);
         await loadAdminUsers(false);
         this.showMenu();
-        hideSplash(splashRun, 260);
         toast(`Account ready for ${data.user.username}`, 1800);
       } catch (error) {
-        hideSplash(splashRun, 120);
         toast(error.message || 'Cannot create account', 2200);
       }
     },

@@ -40,6 +40,7 @@ export class AircraftController {
     // Ground
     this.getTerrainHeight  = null;
     this.checkObstacleHit  = null;
+    this.checkObstacleSweep = null;
     this.waterLevel        = -200;
     this.landed            = null;
     this.landedTimer       = 0;
@@ -62,6 +63,8 @@ export class AircraftController {
     this.collisionHalfExtents = new THREE.Vector3(1.2, 0.8, 1.2);
     this.collisionCenterOffset = new THREE.Vector3();
     this._collisionCenter = new THREE.Vector3();
+    this._previousPosition = new THREE.Vector3();
+    this._previousCollisionCenter = new THREE.Vector3();
     this.collisionBottomOffset = 0.8;
     this.condition = 100;
     this.damageState = 'excellent';
@@ -153,7 +156,7 @@ export class AircraftController {
       this.throttle + input.throttle * dt * 0.5, 0, 1
     );
     if (input.brake) {
-      this.throttle = Math.max(0, this.throttle - dt * 1.0);
+      this.throttle = Math.max(0, this.throttle - dt * 2.2);
     }
 
     // ── Boost ────────────────────────────────────────────────
@@ -180,7 +183,7 @@ export class AircraftController {
       : 1;
     const authority = THREE.MathUtils.clamp(speed / (this.config.stallSpeed * 0.9), 0, 1) * handlingFactor;
     const speedRatio = THREE.MathUtils.clamp(speed / Math.max(this.config.maxSpeed, 1), 0, 1);
-    const pitchResponse = 1 - Math.exp(-dt * (3.6 + this.stats.agility * 0.9));
+    const pitchResponse = 1 - Math.exp(-dt * (2.8 + this.stats.agility * 0.72));
     const lateralResponse = 1 - Math.exp(-dt * (5.2 + this.stats.agility * 1.25));
     const trickInput = this._updateTrickState(dt);
     const assistedInput = this._applyAssistInput(this._applyStunInput(input));
@@ -189,7 +192,7 @@ export class AircraftController {
     const rawYaw = trickInput?.yaw ?? assistedInput.yaw;
     const commandPitch = trickInput
       ? rawPitch
-      : Math.sign(rawPitch) * Math.pow(Math.abs(rawPitch), 1.45) * 0.72;
+      : Math.sign(rawPitch) * Math.pow(Math.abs(rawPitch), 1.22) * 0.56;
     const commandRoll = trickInput
       ? rawRoll
       : Math.sign(rawRoll) * Math.pow(Math.abs(rawRoll), 1.12);
@@ -206,7 +209,7 @@ export class AircraftController {
     const bankAngle = -this._rotationEuler.z;
     const coordinatedTurn = Math.sin(bankAngle) * THREE.MathUtils.clamp(speed / Math.max(this.config.stallSpeed, 1), 0, 3.2) * 0.26 * handlingFactor;
     const rollRate  = this.config.rollRate  * this._controlState.roll  * dt * authority;
-    const pitchAuthority = authority * THREE.MathUtils.lerp(0.72, 0.48, speedRatio);
+    const pitchAuthority = authority * THREE.MathUtils.lerp(0.58, 0.34, speedRatio);
     const pitchRate = this.config.pitchRate * this._controlState.pitch * dt * pitchAuthority;
     const yawRate   = (this.config.yawRate * this._controlState.yaw + coordinatedTurn) * dt * authority;
 
@@ -237,6 +240,8 @@ export class AircraftController {
     this.gForce = accel.length() / PHYSICS.GRAVITY;
 
     // Integrate
+    this._previousPosition.copy(this.position);
+    this._previousCollisionCenter.copy(this._getCollisionCenter());
     this.velocity.addScaledVector(accel, dt);
     this._alignVelocityToForward(dt);
 
@@ -350,6 +355,16 @@ export class AircraftController {
       this.velocity.set(0, 0, 0);
     }
 
+    if (input.brake && this.nearGround) {
+      const brakeDamping = 1 - Math.exp(-dt * (this.isLanded ? 12 : 6.8));
+      this.velocity.x = THREE.MathUtils.lerp(this.velocity.x, 0, brakeDamping);
+      this.velocity.z = THREE.MathUtils.lerp(this.velocity.z, 0, brakeDamping);
+      if (this.isLanded && Math.hypot(this.velocity.x, this.velocity.z) < 1.2) {
+        this.velocity.x = 0;
+        this.velocity.z = 0;
+      }
+    }
+
     // Altitude ceiling
     if (this.position.y > 5000) {
       this.position.y = 5000;
@@ -357,7 +372,12 @@ export class AircraftController {
     }
 
     // ── Obstacle collision ───────────────────────────────────
-    if (!this.isCrashed && this.checkObstacleHit && this.checkObstacleHit(this._getCollisionCenter(), this.collisionRadius, this.collisionHalfExtents)) {
+    const currentCollisionCenter = this._getCollisionCenter();
+    const obstacleHit = !this.isCrashed && (
+      (this.checkObstacleSweep && this.checkObstacleSweep(this._previousCollisionCenter, currentCollisionCenter, this.collisionRadius, this.collisionHalfExtents))
+      || (this.checkObstacleHit && this.checkObstacleHit(currentCollisionCenter, this.collisionRadius, this.collisionHalfExtents))
+    );
+    if (obstacleHit) {
       this.landed      = 'crash';
       this.landedTimer = 2.5;
       this.isCrashed   = true;
