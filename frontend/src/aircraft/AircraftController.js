@@ -243,7 +243,7 @@ export class AircraftController {
     this._previousPosition.copy(this.position);
     this._previousCollisionCenter.copy(this._getCollisionCenter());
     this.velocity.addScaledVector(accel, dt);
-    this._alignVelocityToForward(dt);
+    this._alignVelocityToForward(dt, input);
 
     // Speed cap
     const maxSpd = this.boostActive ? this.config.maxSpeed * 1.5 : this.config.maxSpeed;
@@ -357,15 +357,14 @@ export class AircraftController {
 
     if (input.brake && this.nearGround) {
       const surfaceSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-      const brakingAccel = (this.isLanded ? 24 : 14) + Math.max(8, this.config.stallSpeed * 0.22);
+      const brakingAccel = (this.isLanded ? 38 : 20) + Math.max(12, this.config.stallSpeed * 0.32);
       const nextSurfaceSpeed = Math.max(0, surfaceSpeed - brakingAccel * dt);
       const scale = surfaceSpeed > 0.0001 ? nextSurfaceSpeed / surfaceSpeed : 0;
       this.velocity.x *= scale;
       this.velocity.z *= scale;
       this.velocity.y = Math.min(this.velocity.y, 0);
-      if (this.isLanded && nextSurfaceSpeed < 0.35 && this.throttle < 0.02) {
-        this.velocity.x = 0;
-        this.velocity.z = 0;
+      if (this.isLanded && this.throttle < 0.05 && nextSurfaceSpeed < Math.max(0.2, this.config.stallSpeed * 0.01)) {
+        this.velocity.set(0, 0, 0);
       }
     }
 
@@ -382,12 +381,12 @@ export class AircraftController {
       || (this.checkObstacleHit && this.checkObstacleHit(currentCollisionCenter, this.collisionRadius, this.collisionHalfExtents))
     );
     if (obstacleHit) {
+      this.position.copy(this._previousPosition);
       this.landed      = 'crash';
       this.landedTimer = 2.5;
       this.isCrashed   = true;
       this.isLanded    = false;
-      this.velocity.multiplyScalar(-0.2);
-      this.velocity.y = 3;
+      this.velocity.set(0, 0, 0);
       this._registerImpact('obstacle', 22, 1.25);
     }
 
@@ -592,9 +591,20 @@ export class AircraftController {
     return choice.name;
   }
 
-  _alignVelocityToForward(dt) {
+  _alignVelocityToForward(dt, input = null) {
     const speed = this.velocity.length();
     if (speed < 0.001) return;
+
+    if ((this.isLanded || this.landed === 'smooth' || this.landed === 'hard') && (input?.brake || this.throttle < 0.06)) {
+      const damping = Math.exp(-dt * 9.5);
+      this.velocity.x *= damping;
+      this.velocity.z *= damping;
+      if (Math.hypot(this.velocity.x, this.velocity.z) < Math.max(0.12, this.config.stallSpeed * 0.008)) {
+        this.velocity.x = 0;
+        this.velocity.z = 0;
+      }
+      return;
+    }
 
     this._forwardVector.set(0, 0, -1).applyQuaternion(this.quaternion).normalize();
     const minSpeed = Math.max(this.config.stallSpeed * 0.72, 8);

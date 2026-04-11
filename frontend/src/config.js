@@ -234,6 +234,26 @@ export const AIRCRAFT = {
     startAltitude: 1300,
     startSpeed: 220,
   },
+  stealth_bomber: {
+    name: 'B-2 Spirit',
+    type: 'stealth_bomber',
+    description: 'Experimental stealth bomber tuning with extreme thrust, huge lift, and overpowering stability.',
+    stats: { speed: 6, agility: 5, stability: 6 },
+    mass: 52000,
+    wingArea: 460.0,
+    liftCoefficient: 1.26,
+    dragCoefficient: 0.015,
+    maxThrust: 520000,
+    stallSpeed: 84,
+    maxSpeed: 1480,
+    rollRate: 2.2,
+    pitchRate: 1.8,
+    yawRate: 1.18,
+    color: 0x111417,
+    accentColor: 0x63d7ff,
+    startAltitude: 1500,
+    startSpeed: 240,
+  },
 };
 
 export const AIRCRAFT_STAT_MAX = 6;
@@ -576,5 +596,6 @@ export const RACE = {
     mustang: 6200,
     concorde: 22000,
     blackbird: 26000,
+    stealth_bomber: 42000,
   },
 };

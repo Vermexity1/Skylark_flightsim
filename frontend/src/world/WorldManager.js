@@ -143,10 +143,49 @@ function makeSkyBackdropTexture(env) {
   const ctx = canvas.getContext('2d');
   const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
   gradient.addColorStop(0, `#${new THREE.Color(env.skyTopColor).getHexString()}`);
-  gradient.addColorStop(0.58, `#${new THREE.Color(env.fogColor).getHexString()}`);
+  gradient.addColorStop(0.46, `#${new THREE.Color(env.fogColor).getHexString()}`);
   gradient.addColorStop(1, `#${new THREE.Color(env.skyBottomColor).getHexString()}`);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const warmGlow = ctx.createLinearGradient(0, canvas.height * 0.42, 0, canvas.height);
+  warmGlow.addColorStop(0, 'rgba(255, 190, 120, 0.0)');
+  warmGlow.addColorStop(0.55, 'rgba(255, 188, 108, 0.14)');
+  warmGlow.addColorStop(1, 'rgba(255, 214, 168, 0.28)');
+  ctx.fillStyle = warmGlow;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const sunX = canvas.width * 0.7;
+  const sunY = canvas.height * 0.36;
+  const sunGlow = ctx.createRadialGradient(sunX, sunY, canvas.width * 0.02, sunX, sunY, canvas.width * 0.18);
+  sunGlow.addColorStop(0, 'rgba(255, 243, 210, 0.95)');
+  sunGlow.addColorStop(0.32, 'rgba(255, 220, 162, 0.36)');
+  sunGlow.addColorStop(1, 'rgba(255, 198, 140, 0.0)');
+  ctx.fillStyle = sunGlow;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const drawCloud = (x, y, width, height, opacity) => {
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.ellipse(x, y, width * 0.32, height * 0.38, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width * 0.18, y - height * 0.1, width * 0.28, height * 0.32, 0, 0, Math.PI * 2);
+    ctx.ellipse(x - width * 0.18, y + height * 0.02, width * 0.24, height * 0.28, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  };
+
+  for (let i = 0; i < 18; i++) {
+    drawCloud(
+      Math.random() * canvas.width,
+      canvas.height * (0.16 + Math.random() * 0.46),
+      70 + Math.random() * 170,
+      26 + Math.random() * 56,
+      0.03 + Math.random() * 0.09
+    );
+  }
+
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -449,7 +488,7 @@ export class WorldManager {
       const start = RACE.START_POSITIONS[Math.min(slot, RACE.START_POSITIONS.length - 1)] ?? RACE.START_POSITIONS[0];
       const gate = CHALLENGE.COURSES.air_race[0];
       const position = new THREE.Vector3(start.x, 0, start.z);
-      position.y = this.getSurfaceHeight(position.x, position.z) + 3.2;
+      position.y = Math.max(start.y + 3.2, this.getSurfaceHeight(position.x, position.z) + 3.2);
       const lookTarget = new THREE.Vector3(gate.x, Math.max(gate.y, this.getSurfaceHeight(gate.x, gate.z) + 22), gate.z);
       const quaternion = new THREE.Quaternion().setFromRotationMatrix(
         new THREE.Matrix4().lookAt(position, lookTarget, new THREE.Vector3(0, 1, 0))
@@ -720,16 +759,18 @@ export class WorldManager {
       h -= basins;
     } else if (this.envKey === 'coastal') {
       const coastDist = Math.sqrt((x / 18000) ** 2 + (z / 18000) ** 2);
-      const islandMask = 1 - THREE.MathUtils.smoothstep(coastDist, 0.34, 1.2);
+      const islandMask = 1 - THREE.MathUtils.smoothstep(coastDist, 0.28, 1.08);
       const archipelago = this.noise.fbm(x * 0.00078 + 21.2, z * 0.00078 - 8.6, 4, 2.1, 0.52) * 0.5 + 0.5;
-      const shelf = Math.pow(Math.max(0, islandMask * 0.98 + archipelago * 0.58 - 0.26), 1.28) * env.amplitude * 0.62;
+      const reefNoise = this.noise.fbm(x * 0.00128 - 16.2, z * 0.00128 + 8.4, 4, 2.05, 0.52) * 0.5 + 0.5;
+      const lagoonCuts = Math.max(0, reefNoise - 0.56) * 44;
+      const shelf = Math.pow(Math.max(0, islandMask * 0.92 + archipelago * 0.52 - 0.34), 1.4) * env.amplitude * 0.76;
       const mainlandDist = Math.sqrt((x / 22000) ** 2 + (z / 22000) ** 2);
-      const mainlandMask = 1 - THREE.MathUtils.smoothstep(mainlandDist + this.noise.get(x * 0.00024, z * 0.00024) * 0.16, 0.42, 1.12);
-      const mainland = mainlandMask * env.amplitude * 0.5 + archipelago * env.amplitude * 0.12;
-      const beachShelf = Math.max(0, islandMask * 0.7 + archipelago * 0.38 - 0.35) * 18;
-      const oceanMask = THREE.MathUtils.smoothstep(coastDist + this.noise.get(x * 0.00032 - 4.2, z * 0.00032 + 2.8) * 0.2, 0.28, 0.82);
-      h = Math.max(h * 0.42, shelf - 26, mainland - 22, beachShelf + (env.waterLevel ?? 0) + 4);
-      h = THREE.MathUtils.lerp(h, (env.waterLevel ?? 0) - 34, oceanMask * 0.92);
+      const mainlandMask = 1 - THREE.MathUtils.smoothstep(mainlandDist + this.noise.get(x * 0.00024, z * 0.00024) * 0.16, 0.38, 1.02);
+      const mainland = mainlandMask * env.amplitude * 0.44 + archipelago * env.amplitude * 0.08;
+      const beachShelf = Math.max(0, islandMask * 0.64 + archipelago * 0.34 - 0.4) * 14;
+      const oceanMask = THREE.MathUtils.smoothstep(coastDist + this.noise.get(x * 0.00032 - 4.2, z * 0.00032 + 2.8) * 0.2, 0.24, 0.7);
+      h = Math.max(h * 0.18, shelf - 38 - lagoonCuts, mainland - 36, beachShelf + (env.waterLevel ?? 0) + 2);
+      h = THREE.MathUtils.lerp(h, (env.waterLevel ?? 0) - 52, oceanMask * 0.985);
     } else if (this.envKey === 'city') {
       const metroDist = Math.sqrt((x / 9200) ** 2 + (z / 9200) ** 2);
       const metroFlat = 1 - THREE.MathUtils.smoothstep(metroDist, 0.16, 0.92);
@@ -934,7 +975,7 @@ export class WorldManager {
     if (!start || !end) return false;
     const travel = start.distanceTo(end);
     const footprint = extents ? Math.max(2, Math.min(extents.x, extents.z)) : Math.max(2, radius || 2);
-    const sampleStep = Math.max(2.5, Math.min(12, footprint * 0.45));
+    const sampleStep = Math.max(1.25, Math.min(8, footprint * 0.3));
     const steps = Math.max(1, Math.ceil(travel / sampleStep));
     const probe = new THREE.Vector3();
     for (let i = 0; i <= steps; i++) {
@@ -1215,24 +1256,26 @@ export class WorldManager {
     if (this.envKey !== 'coastal') return;
     if (env.waterLevel < -150) return;
 
-    const geo = new THREE.PlaneGeometry(RENDER.TERRAIN_SIZE * 2.2, RENDER.TERRAIN_SIZE * 2.2, 12, 12);
+    const geo = new THREE.PlaneGeometry(RENDER.TERRAIN_SIZE * 3.2, RENDER.TERRAIN_SIZE * 3.2, 24, 24);
     geo.rotateX(-Math.PI / 2);
 
     const mat = new THREE.MeshStandardMaterial({
       color: this.envConfig?.waterColor ?? 0x63cfe1,
       transparent: true,
-      opacity: 0.82,
-      roughness: 0.12,
-      metalness: 0.14,
-      envMapIntensity: 1.05,
-      normalScale: new THREE.Vector2(0.26, 0.26),
+      opacity: 0.86,
+      roughness: 0.08,
+      metalness: 0.18,
+      envMapIntensity: 1.18,
+      normalScale: new THREE.Vector2(0.32, 0.32),
     });
     mat.map = this._terrainTextureSet.water.color;
     mat.normalMap = this._terrainTextureSet.water.normal;
     mat.roughnessMap = this._terrainTextureSet.water.roughness;
+    mat.emissive = new THREE.Color(0x0d4d65);
+    mat.emissiveIntensity = 0.06;
 
     this.water = new THREE.Mesh(geo, mat);
-    this.water.position.y = env.waterLevel + 1.2;
+    this.water.position.y = env.waterLevel + 2.0;
     this.water.receiveShadow = true;
     this.scene.add(this.water);
   }
@@ -1873,9 +1916,9 @@ export class WorldManager {
       0.08
     );
     const sampled = corridorCurve.getSpacedPoints(260);
-    const corridorWidth = 920;
-    const corridorHeight = 420;
-    const wallThickness = 72;
+    const corridorWidth = 1120;
+    const corridorHeight = 440;
+    const wallThickness = 112;
     const shellThickness = 26;
     const startDeckTop = 520;
     const startDeckCenterY = startDeckTop - 14;
@@ -1972,9 +2015,9 @@ export class WorldManager {
       0,
       true
     );
-    makeSegmentBox(30, 210, 520, wallMaterials.left.clone(), new THREE.Vector3(-545, startDeckTop + 77, 2500), 0, true);
-    makeSegmentBox(30, 210, 520, wallMaterials.right.clone(), new THREE.Vector3(545, startDeckTop + 77, 2500), 0, true);
-    makeSegmentBox(1120, 210, 30, wallMaterials.left.clone(), new THREE.Vector3(0, startDeckTop + 77, 2755), 0, true);
+    makeSegmentBox(54, 230, 520, wallMaterials.left.clone(), new THREE.Vector3(-545, startDeckTop + 85, 2500), 0, true);
+    makeSegmentBox(54, 230, 520, wallMaterials.right.clone(), new THREE.Vector3(545, startDeckTop + 85, 2500), 0, true);
+    makeSegmentBox(1120, 230, 54, wallMaterials.left.clone(), new THREE.Vector3(0, startDeckTop + 85, 2755), 0, true);
 
     this.surfaceZones.push({
       minX: -560,

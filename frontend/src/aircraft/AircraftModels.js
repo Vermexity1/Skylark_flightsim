@@ -26,6 +26,7 @@ export class AircraftModels {
       case 'mustang': return AircraftModels._createMustang(config);
       case 'concorde': return AircraftModels._createConcorde(config);
       case 'blackbird': return AircraftModels._createBlackbird(config);
+      case 'stealth_bomber': return AircraftModels._createStealthBomber(config);
       case 'custom_upload': return AircraftModels._createJet(config);
       default:        return AircraftModels._createProp(config);
       }
@@ -808,6 +809,86 @@ export class AircraftModels {
     const accentLine = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 8.2), accent);
     accentLine.position.set(0, 0.18, -0.4);
     g.add(accentLine);
+
+    this._applyShading(g);
+    return g;
+  }
+
+  static _createStealthBomber(cfg) {
+    const g = new THREE.Group();
+    const hull = this._glossMat(cfg.color);
+    const glow = new THREE.MeshPhongMaterial({
+      color: cfg.accentColor,
+      emissive: cfg.accentColor,
+      emissiveIntensity: 0.85,
+      shininess: 120,
+      flatShading: false,
+    });
+    const canopyMat = new THREE.MeshPhongMaterial({
+      color: 0x324b63,
+      emissive: 0x112030,
+      emissiveIntensity: 0.32,
+      shininess: 160,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const dark = this._mat(0x090b0f, false);
+
+    const centerBody = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.38, 7.2, 10), hull);
+    centerBody.rotation.x = Math.PI / 2;
+    centerBody.scale.set(1.0, 0.72, 1.0);
+    centerBody.position.z = -0.4;
+    g.add(centerBody);
+
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.82, 3.8, 6), hull);
+    nose.rotation.x = -Math.PI / 2;
+    nose.position.z = -5.55;
+    g.add(nose);
+
+    const trailingBody = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.6, 3.8), hull);
+    trailingBody.position.set(0, -0.12, 2.25);
+    g.add(trailingBody);
+
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(18.5, 0.18, 4.2), hull);
+    wing.position.set(0, 0, 0.75);
+    wing.scale.set(1, 1, 0.9);
+    g.add(wing);
+
+    const wingTipLeft = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.14, 2.3), hull);
+    wingTipLeft.position.set(-6.9, 0.02, 2.25);
+    wingTipLeft.rotation.y = -0.38;
+    const wingTipRight = wingTipLeft.clone();
+    wingTipRight.position.x *= -1;
+    wingTipRight.rotation.y *= -1;
+    g.add(wingTipLeft, wingTipRight);
+
+    const innerCutLeft = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.12, 2.6), dark);
+    innerCutLeft.position.set(-2.6, -0.02, 1.8);
+    innerCutLeft.rotation.y = 0.18;
+    const innerCutRight = innerCutLeft.clone();
+    innerCutRight.position.x *= -1;
+    innerCutRight.rotation.y *= -1;
+    g.add(innerCutLeft, innerCutRight);
+
+    const canopy = new THREE.Mesh(new THREE.SphereGeometry(0.62, 18, 12), canopyMat);
+    canopy.scale.set(1.0, 0.34, 1.9);
+    canopy.position.set(0, 0.42, -2.2);
+    g.add(canopy);
+
+    [-2.2, 2.2].forEach(x => {
+      const intake = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.5, 2.8), dark);
+      intake.position.set(x, -0.18, 1.1);
+      g.add(intake);
+
+      const exhaust = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.42, 1.2, 8), glow);
+      exhaust.rotation.x = Math.PI / 2;
+      exhaust.position.set(x, -0.12, 4.15);
+      g.add(exhaust);
+    });
+
+    const accentStrip = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.08, 7.6), glow);
+    accentStrip.position.set(0, 0.12, -0.25);
+    g.add(accentStrip);
 
     this._applyShading(g);
     return g;
