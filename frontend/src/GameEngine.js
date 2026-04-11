@@ -103,6 +103,14 @@ export class GameEngine {
 
     // ── Settings ──────────────────────────────────────────────
     this.settings = { bloom: true, contrail: true, weather: 'none', shadows: true, fpsCap: 0, quality: 'auto' };
+    this.devTools = {
+      enabled: false,
+      routePoints: [],
+      routeIndex: 0,
+      captureArmed: false,
+      routeActive: false,
+      raceAutoWin: false,
+    };
 
     // ── Input callbacks ───────────────────────────────────────
     this.input.onCameraToggle = () => this.cycleCameraMode();
@@ -116,6 +124,7 @@ export class GameEngine {
     this.input.onPause        = () => callbacks.onPause?.();
     this.input.onHelpToggle   = () => callbacks.onHelpToggle?.();
     this.input.onMouseToggle  = en => callbacks.onMouseToggle?.(en);
+    this.guidance.setExternalPointClickHandler?.(point => this._handleDevPointPlacement(point));
 
     if (DEBUG) console.log('[Engine] Created');
   }
@@ -124,6 +133,11 @@ export class GameEngine {
   async init(aircraftType, environment, gameMode = 'free_fly', options = {}) {
     this.gameMode = gameMode;
     this.sessionOptions = options;
+    this.devTools.enabled = options?.userRole === 'dev';
+    this.devTools.captureArmed = false;
+    this.devTools.routeActive = false;
+    this.devTools.raceAutoWin = false;
+    this.devTools.routeIndex = 0;
     const activeEnvironment = isRaceMode(gameMode) ? RACE.TRACK_KEY : environment;
     this.world.loadEnvironment(activeEnvironment);
     this.world.setGuidelineVisible(false);
@@ -185,6 +199,7 @@ export class GameEngine {
     this.callbacks.onCameraChange?.(this.camera.getMode());
     this.callbacks.onGuidanceChange?.(this.guidance.isEnabled());
     this.callbacks.onAssistChange?.(this.aircraft.stabilityAssistEnabled);
+    this.callbacks.onDevPathChange?.(this.getDevAutoflyStatus());
   }
 
   _applySessionRaceRules(rules = {}) {
@@ -261,6 +276,7 @@ export class GameEngine {
           mouseEnabled: this.input.mouseSteeringEnabled,
           guidanceEnabled: false,
           assistEnabled: this.aircraft.stabilityAssistEnabled,
+          ...this.getDevAutoflyStatus(),
           replayActive: true,
           replayProgress: replayFrame.progress,
           career: this.career.getState(),
@@ -293,14 +309,17 @@ export class GameEngine {
     this._updateAimCursor(rawInput, dt);
     const preUpdateState = this.aircraft.getState();
     const autolandOverride = this.guidance.getAutolandOverride(preUpdateState, dt);
-    if (autolandOverride) {
+    const devOverride = this._getDevAutoflyOverride(preUpdateState, dt, liveRaceStatus);
+    if (devOverride) {
+      this.aircraft.applyExternalFlightState(devOverride);
+    } else if (autolandOverride) {
       this.aircraft.applyExternalFlightState(autolandOverride);
     } else {
       const guidedInput = this.guidance.modifyInput(rawInput, preUpdateState);
       this.aircraft.update(guidedInput, dt);
     }
     this._processAircraftEvents();
-    const s = this.aircraft.getState();
+    let s = this.aircraft.getState();
     this.replay.record(s, dt);
     const gunProfile = this.career.getEquippedGun();
     this.guns.syncProfile(gunProfile);
@@ -385,10 +404,21 @@ export class GameEngine {
       }
     }
 
+    if (raceStatus.raceRespawnTransform) {
+      this.aircraft.setFlightState({
+        ...raceStatus.raceRespawnTransform,
+        preserveExactSpeed: true,
+      });
+      this.race.clearRespawnRequest?.();
+      this.onlineRace.clearRespawnRequest?.();
+      s = this.aircraft.getState();
+      this.audio.speakATC?.('Track limits exceeded. Returning aircraft to the start grid.');
+    }
+
     const guidanceState = {
       ...s,
       ...raceStatus,
-      raceGuideTarget: this.world.getRaceGuideTarget?.(s.position) ?? null,
+      raceGuideTarget: this.world.getRaceGuideTargetByIndex?.(raceStatus.raceNextGateIndex ?? 0) ?? this.world.getRaceGuideTarget?.(s.position) ?? null,
     };
     this.guidance.update(guidanceState, dt);
 
@@ -409,6 +439,7 @@ export class GameEngine {
       ...this.guns.getStatus(),
       gunAvailable: this.guns.canFire(s.aircraftType, this.career.getEquippedGun()),
       ...raceStatus,
+      ...this.getDevAutoflyStatus(),
       ...this.replay.getStatus(),
       career: this.career.getState(),
     };
@@ -519,6 +550,59 @@ export class GameEngine {
     return this.settings.fpsCap;
   }
 
+  getDevAutoflyStatus() {
+    return {
+      devModeAvailable: this.devTools.enabled,
+      devRoutePointCount: this.devTools.routePoints.length,
+      devRouteCaptureArmed: this.devTools.captureArmed,
+      devAutoPathActive: this.devTools.routeActive,
+      devAutoRaceActive: this.devTools.raceAutoWin,
+    };
+  }
+
+  armDevRouteCapture() {
+    if (!this.devTools.enabled) return this.getDevAutoflyStatus();
+    if (this.devTools.routePoints.length >= 10) this.devTools.routePoints = [];
+    this.devTools.captureArmed = true;
+    this.devTools.routeActive = false;
+    this.devTools.raceAutoWin = false;
+    const status = this.getDevAutoflyStatus();
+    this.callbacks.onDevPathChange?.(status);
+    return status;
+  }
+
+  clearDevRoute() {
+    this.devTools.routePoints = [];
+    this.devTools.routeIndex = 0;
+    this.devTools.captureArmed = false;
+    this.devTools.routeActive = false;
+    this.devTools.raceAutoWin = false;
+    const status = this.getDevAutoflyStatus();
+    this.callbacks.onDevPathChange?.(status);
+    return status;
+  }
+
+  toggleDevRouteAutofly() {
+    if (!this.devTools.enabled || !this.devTools.routePoints.length) return this.getDevAutoflyStatus();
+    this.devTools.routeActive = !this.devTools.routeActive;
+    this.devTools.routeIndex = THREE.MathUtils.clamp(this.devTools.routeIndex, 0, Math.max(0, this.devTools.routePoints.length - 1));
+    this.devTools.captureArmed = false;
+    this.devTools.raceAutoWin = false;
+    const status = this.getDevAutoflyStatus();
+    this.callbacks.onDevPathChange?.(status);
+    return status;
+  }
+
+  toggleDevRaceAutofly() {
+    if (!this.devTools.enabled || !isRaceMode(this.gameMode)) return this.getDevAutoflyStatus();
+    this.devTools.raceAutoWin = !this.devTools.raceAutoWin;
+    this.devTools.captureArmed = false;
+    this.devTools.routeActive = false;
+    const status = this.getDevAutoflyStatus();
+    this.callbacks.onDevPathChange?.(status);
+    return status;
+  }
+
   // ── In-flight aircraft switch ─────────────────────────────
   changeAircraft(type) {
     const s = this.aircraft.getState();
@@ -541,6 +625,7 @@ export class GameEngine {
       mouseEnabled: this.input.mouseSteeringEnabled,
       guidanceEnabled: this.guidance.isEnabled(),
       assistEnabled: this.aircraft.stabilityAssistEnabled,
+      ...this.getDevAutoflyStatus(),
     };
     this.callbacks.onStateUpdate?.(this._state);
     this.callbacks.onFleetUpdate?.(this.damage.getFleetStatus());
@@ -666,9 +751,86 @@ export class GameEngine {
       guidanceEnabled: this.guidance.isEnabled(),
       assistEnabled: this.aircraft.stabilityAssistEnabled,
       cameraMode: this.camera.getMode(),
+      ...this.getDevAutoflyStatus(),
     };
     this.callbacks.onStateUpdate?.(this._state);
     return this._state;
+  }
+
+  _handleDevPointPlacement(point) {
+    if (!this.devTools.enabled || !this.devTools.captureArmed || !point) return false;
+    if (this.devTools.routePoints.length >= 10) {
+      this.devTools.captureArmed = false;
+      this.callbacks.onDevPathChange?.(this.getDevAutoflyStatus());
+      return false;
+    }
+    this.devTools.routePoints.push(point.clone());
+    this.devTools.routeIndex = 0;
+    if (this.devTools.routePoints.length >= 10) this.devTools.captureArmed = false;
+    this.callbacks.onDevPathChange?.(this.getDevAutoflyStatus());
+    return true;
+  }
+
+  _getDevAutoflyOverride(flightState, dt, raceStatus = {}) {
+    if (!this.devTools.enabled || !flightState) return null;
+
+    if (this.devTools.raceAutoWin && isRaceMode(this.gameMode)) {
+      const target = this.world.getRaceGuideTargetByIndex?.(raceStatus.raceNextGateIndex ?? 0);
+      if (target) return this._buildAutoflyOverride(flightState, target, dt, 1.24);
+    }
+
+    if (this.devTools.routeActive && this.devTools.routePoints.length) {
+      const target = this.devTools.routePoints[this.devTools.routeIndex];
+      if (!target) {
+        this.devTools.routeActive = false;
+        this.callbacks.onDevPathChange?.(this.getDevAutoflyStatus());
+        return null;
+      }
+      if (flightState.position.distanceTo(target) < 90) {
+        this.devTools.routeIndex += 1;
+        if (this.devTools.routeIndex >= this.devTools.routePoints.length) {
+          this.devTools.routeActive = false;
+          this.devTools.routeIndex = Math.max(0, this.devTools.routePoints.length - 1);
+          this.callbacks.onDevPathChange?.(this.getDevAutoflyStatus());
+          return null;
+        }
+      }
+      return this._buildAutoflyOverride(flightState, this.devTools.routePoints[this.devTools.routeIndex], dt, 1.08);
+    }
+
+    return null;
+  }
+
+  _buildAutoflyOverride(flightState, target, dt, speedMultiplier = 1.08) {
+    const toTarget = target.clone().sub(flightState.position);
+    const distance = Math.max(1, toTarget.length());
+    const desiredDirection = toTarget.normalize();
+    const lookTarget = flightState.position.clone().add(desiredDirection.clone().multiplyScalar(180));
+    const quaternion = new THREE.Quaternion().setFromRotationMatrix(
+      new THREE.Matrix4().lookAt(flightState.position, lookTarget, new THREE.Vector3(0, 1, 0))
+    );
+    const targetSpeed = Math.max(
+      this.aircraft.config?.stallSpeed ?? 80,
+      (this.aircraft.config?.maxSpeed ?? 220) * speedMultiplier
+    );
+    const response = 1 - Math.exp(-dt * 2.2);
+    const cappedTargetSpeed = distance < 120 && !isRaceMode(this.gameMode)
+      ? Math.max((this.aircraft.config?.stallSpeed ?? 80) * 0.94, targetSpeed * 0.74)
+      : targetSpeed;
+    const nextSpeed = THREE.MathUtils.lerp(flightState.speed, cappedTargetSpeed, response);
+    const velocity = desiredDirection.multiplyScalar(nextSpeed);
+    const position = flightState.position.clone().addScaledVector(velocity, dt);
+    if (distance < 120 && !isRaceMode(this.gameMode)) {
+      velocity.multiplyScalar(0.82);
+    }
+
+    return {
+      position,
+      quaternion,
+      velocity,
+      throttle: 1,
+      landed: false,
+    };
   }
 
   _processAircraftEvents() {
@@ -684,9 +846,18 @@ export class GameEngine {
       } else if (event.aircraftType === this.aircraft.aircraftType) {
         this.aircraft.setCondition(100);
       }
-      this.crashFx.triggerImpact(event.position, event.intensity);
-      this.audio.triggerCrash?.(Math.min(1.3, event.intensity));
-      this.camera.addImpactShake?.(event.kind === 'hard_landing' ? 0.35 : 0.95 * event.intensity);
+      if (event.kind === 'smooth') {
+        this.crashFx.triggerLanding(event.position, Math.max(0.2, event.intensity * 0.4), 'smooth');
+        this.camera.addImpactShake?.(0.12);
+      } else if (event.kind === 'hard_landing') {
+        this.crashFx.triggerLanding(event.position, Math.max(0.32, event.intensity * 0.55), 'hard');
+        this.audio.triggerCrash?.(Math.min(0.55, event.intensity * 0.5));
+        this.camera.addImpactShake?.(0.38);
+      } else {
+        this.crashFx.triggerImpact(event.position, event.intensity);
+        this.audio.triggerCrash?.(Math.min(1.3, event.intensity));
+        this.camera.addImpactShake?.(0.95 * event.intensity);
+      }
       if (event.kind === 'crash' || event.kind === 'water' || event.kind === 'obstacle') {
         this.audio.speakATC?.('Tower to pilot, emergency crews are responding now.');
       }

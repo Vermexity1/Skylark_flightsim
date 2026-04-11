@@ -213,10 +213,116 @@ export class CrashEffectSystem {
     });
   }
 
+  triggerLanding(position, intensity = 0.45, kind = 'smooth') {
+    const group = new THREE.Group();
+    group.position.copy(position);
+
+    const dustMaterial = new THREE.MeshStandardMaterial({
+      color: kind === 'hard' ? 0xb79266 : 0xd5ddd8,
+      roughness: 1,
+      metalness: 0,
+      transparent: true,
+      opacity: kind === 'hard' ? 0.82 : 0.55,
+    });
+    const ringMaterial = new THREE.MeshBasicMaterial({
+      color: kind === 'hard' ? 0xffc88a : 0xb8efff,
+      transparent: true,
+      opacity: kind === 'hard' ? 0.5 : 0.34,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+    });
+    const sparkMaterial = new THREE.MeshBasicMaterial({
+      color: kind === 'hard' ? 0xffcc88 : 0xe9f7ff,
+      transparent: true,
+      opacity: kind === 'hard' ? 0.95 : 0.45,
+    });
+
+    const shockRing = new THREE.Mesh(new THREE.RingGeometry(1.4, 2.8, 32), ringMaterial);
+    shockRing.rotation.x = -Math.PI / 2;
+    shockRing.position.y = 0.24;
+    shockRing.scale.setScalar(0.35);
+    group.add(shockRing);
+
+    const puffs = [];
+    for (let i = 0; i < (kind === 'hard' ? 6 : 4); i++) {
+      const puff = new THREE.Mesh(this._puffGeometry, dustMaterial.clone());
+      puff.position.set((Math.random() - 0.5) * 2.8, 0.5 + Math.random() * 0.5, (Math.random() - 0.5) * 2.8);
+      puff.scale.setScalar((kind === 'hard' ? 0.72 : 0.58) + Math.random() * 0.22);
+      puff.userData.drift = new THREE.Vector3(
+        (Math.random() - 0.5) * 2.8,
+        0.6 + Math.random() * 1.2,
+        (Math.random() - 0.5) * 2.8
+      );
+      group.add(puff);
+      puffs.push(puff);
+    }
+
+    const sparks = [];
+    if (kind === 'hard') {
+      for (let i = 0; i < 8; i++) {
+        const spark = new THREE.Mesh(this._sparkGeometry, sparkMaterial);
+        spark.position.set((Math.random() - 0.5) * 2, 0.35 + Math.random() * 0.5, (Math.random() - 0.5) * 2);
+        spark.userData.velocity = new THREE.Vector3(
+          (Math.random() - 0.5) * 8,
+          3 + Math.random() * 4,
+          (Math.random() - 0.5) * 8
+        ).multiplyScalar(intensity * 1.8);
+        group.add(spark);
+        sparks.push(spark);
+      }
+    }
+
+    this.scene.add(group);
+    this.activeEffects.push({
+      group,
+      type: 'landing',
+      kind,
+      shockRing,
+      puffs,
+      sparks,
+      elapsed: 0,
+      duration: kind === 'hard' ? 1.5 : 1.05,
+      intensity,
+      sharedMaterials: { sparkMaterial, debrisMaterial: null, puffMaterial: dustMaterial },
+    });
+  }
+
   update(dt) {
     for (let i = this.activeEffects.length - 1; i >= 0; i--) {
       const fx = this.activeEffects[i];
       fx.elapsed += dt;
+      if (fx.type === 'landing') {
+        const t = fx.elapsed / fx.duration;
+        fx.shockRing.scale.setScalar(THREE.MathUtils.lerp(0.35, fx.kind === 'hard' ? 6.4 : 4.2, t));
+        fx.shockRing.material.opacity = Math.max(0, (fx.kind === 'hard' ? 0.5 : 0.34) - t * 0.72);
+
+        fx.puffs.forEach((puff, index) => {
+          puff.position.addScaledVector(puff.userData.drift, dt * 0.65);
+          puff.scale.setScalar((1 + t * (2.2 + index * 0.08)) * (fx.kind === 'hard' ? 1.1 : 0.9));
+          puff.material.opacity = Math.max(0, (fx.kind === 'hard' ? 0.8 : 0.52) - t * (0.55 + index * 0.04));
+        });
+
+        fx.sparks?.forEach(spark => {
+          spark.userData.velocity.y -= dt * 10;
+          spark.position.addScaledVector(spark.userData.velocity, dt);
+          spark.material.opacity = Math.max(0, 0.9 - t * 1.4);
+        });
+
+        if (fx.elapsed >= fx.duration) {
+          const { sparkMaterial, puffMaterial } = fx.sharedMaterials;
+          fx.group.traverse(node => {
+            if (node.material && node.material !== sparkMaterial && node.material !== puffMaterial) {
+              node.material.dispose?.();
+            }
+          });
+          sparkMaterial?.dispose?.();
+          puffMaterial?.dispose?.();
+          this.scene.remove(fx.group);
+          this.activeEffects.splice(i, 1);
+        }
+        continue;
+      }
       const t = fx.elapsed / fx.duration;
       const burstT = Math.min(1, t / 0.35);
 

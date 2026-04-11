@@ -681,6 +681,12 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
             <button class="btn btn-ghost" onclick="App.refreshAdminUsers()" style="padding:8px 12px; font-size:11px;">Refresh Roster</button>
           </div>
         </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
+          <button class="btn btn-ghost" onclick="App.devArmRoutePoint()" style="padding:8px 12px; font-size:11px;">Add Route Point</button>
+          <button class="btn btn-ghost" onclick="App.devToggleRouteAutofly()" style="padding:8px 12px; font-size:11px;">Toggle Route Fly</button>
+          <button class="btn btn-ghost" onclick="App.devToggleRaceAutofly()" style="padding:8px 12px; font-size:11px;">Toggle Auto Win</button>
+          <button class="btn btn-ghost" onclick="App.devClearRoute()" style="padding:8px 12px; font-size:11px;">Clear Route</button>
+        </div>
         <div id="settings-dev-users" style="display:flex; flex-direction:column; gap:8px; max-height:360px; overflow:auto;"></div>
       </div>
     </div>
@@ -783,6 +789,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     <button id="btn-gun-mode-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px;">Gun: FOLLOW</button>
     <button id="btn-assist-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px;">Assist OFF</button>
     <button id="btn-camera-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px;">Camera: FOLLOW</button>
+    <button id="btn-dev-route-capture" class="btn btn-ghost" style="padding:10px 16px; font-size:12px; display:none;">Route Point</button>
+    <button id="btn-dev-route-toggle" class="btn btn-ghost" style="padding:10px 16px; font-size:12px; display:none;">Fly Route</button>
+    <button id="btn-dev-race-win" class="btn btn-ghost" style="padding:10px 16px; font-size:12px; display:none;">Auto Win</button>
+    <button id="btn-dev-route-clear" class="btn btn-ghost" style="padding:10px 16px; font-size:12px; display:none;">Clear Route</button>
     <button id="btn-reset-flight" class="btn btn-ghost" style="padding:10px 16px; font-size:12px; display:none;">Reset Aircraft</button>
   </div>
   <!-- HUD injected here by HUD.js -->
@@ -1142,7 +1152,11 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     const ownedPlanes = new Set(careerStore.getState().ownedPlanes);
     aircraftGrid.innerHTML = Object.entries(aircraftCatalog).map(([key, cfg]) => {
       const stats = cfg.stats;
-      const bar = (v) => `<div class="stat-bar"><div class="stat-fill" style="width:${Math.min(100, (v / AIRCRAFT_STAT_MAX) * 100)}%"></div></div>`;
+      const bar = (v) => `
+        <div style="display:grid; grid-template-columns:minmax(0,1fr) auto; gap:8px; align-items:center;">
+          <div class="stat-bar"><div class="stat-fill" style="width:${Math.min(100, (v / AIRCRAFT_STAT_MAX) * 100)}%"></div></div>
+          <span style="font-size:10px; color:#dff4ff;">${v}/${AIRCRAFT_STAT_MAX}</span>
+        </div>`;
       const owned = key === 'custom_upload' || ownedPlanes.has(key);
       return `
         <div class="sel-card ${key === sel.aircraft ? 'active' : ''}" id="ac-${key}" onclick="App.selectAircraft('${key}')">
@@ -1292,6 +1306,15 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
     const customDiv = document.getElementById('tab-content-custom');
     if (customDiv) {
+      const isDev = authState?.user?.role === 'dev';
+      const profileControls = [
+        ['maxSpeed', 'Max Speed', 180, isDev ? 2400 : 720, isDev ? 20 : 10],
+        ['stallSpeed', 'Stall Speed', 50, isDev ? 380 : 220, 1],
+        ['targetLength', 'Aircraft Length', 8, isDev ? 80 : 52, 1],
+        ['speed', 'Speed Stat', 1, AIRCRAFT_STAT_MAX, 1],
+        ['agility', 'Agility Stat', 1, AIRCRAFT_STAT_MAX, 1],
+        ['stability', 'Stability Stat', 1, AIRCRAFT_STAT_MAX, 1],
+      ];
       customDiv.innerHTML = `
         <div class="card" style="padding:18px; display:grid; grid-template-columns:1.05fr 0.95fr; gap:16px;">
           <div style="display:flex; flex-direction:column; gap:12px;">
@@ -1312,21 +1335,14 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           </div>
           <div style="display:flex; flex-direction:column; gap:10px;">
             <div style="font-size:11px; color:#8db8dd; letter-spacing:2px;">FLIGHT PROFILE</div>
-            ${[
-              ['maxSpeed', 'Max Speed', 180, 720, 10],
-              ['stallSpeed', 'Stall Speed', 50, 220, 1],
-              ['targetLength', 'Aircraft Length', 8, 52, 1],
-              ['speed', 'Speed Stat', 1, 5, 1],
-              ['agility', 'Agility Stat', 1, 5, 1],
-              ['stability', 'Stability Stat', 1, 5, 1],
-            ].map(([field, label, min, max, step]) => `
+            ${profileControls.map(([field, label, min, max, step]) => `
               <label style="display:flex; flex-direction:column; gap:6px; font-size:12px; color:#dff4ff;">
                 <span>${label}: ${customPlaneDraft[field]}</span>
                 <input type="range" min="${min}" max="${max}" step="${step}" value="${customPlaneDraft[field]}" oninput="App.updateCustomPlaneField('${field}', this.value)" />
               </label>
             `).join('')}
-            <button class="btn btn-primary" onclick="App.prepareCustomPlane()" style="margin-top:6px;">Use In Free Flight</button>
-            <div style="font-size:11px; color:#9fc7e7; line-height:1.5;">Custom planes are available in Free Flight. Upload a model, tune the stats, then select it from the aircraft grid.</div>
+            <button class="btn btn-primary" onclick="App.prepareCustomPlane()" style="margin-top:6px;">${isDev ? 'Use Custom Plane' : 'Use In Free Flight'}</button>
+            <div style="font-size:11px; color:#9fc7e7; line-height:1.5;">${isDev ? 'Developer pilots can use synced custom aircraft in any mode, and can push the speed ceiling far beyond the normal hangar limits.' : 'Custom planes are available in Free Flight. Upload a model, tune the stats, then select it from the aircraft grid.'}</div>
           </div>
         </div>
       `;
@@ -1638,7 +1654,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
   function saveCustomPlaneDraft() {
     try {
-      const { ready, fileName, ...persisted } = customPlaneDraft;
+      const { ready, assetDataUrl, ...persisted } = customPlaneDraft;
       localStorage.setItem(CUSTOM_PLANE_STORAGE_KEY, JSON.stringify(persisted));
     } catch {
       // Ignore storage failures.
@@ -1667,7 +1683,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       },
       customPlane: {
         ...customPlaneDraft,
-        ready: false,
+        ready: !!customPlaneDraft.assetDataUrl,
         fileName: customPlaneDraft.fileName ?? null,
       },
     };
@@ -1700,11 +1716,15 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       }
     }
     if (profile.customPlane && typeof profile.customPlane === 'object') {
+      if (customPlaneAssetUrl && customPlaneAssetUrl.startsWith('blob:')) URL.revokeObjectURL(customPlaneAssetUrl);
+      customPlaneFile = null;
+      customPlaneAssetUrl = profile.customPlane.assetDataUrl || null;
       customPlaneDraft = {
         ...loadCustomPlaneDraft(),
         ...profile.customPlane,
-        ready: !!customPlaneFile,
+        ready: !!(profile.customPlane.assetDataUrl || customPlaneFile),
       };
+      if (customPlaneDraft.ready) ensureCustomAircraftDefinition();
       saveCustomPlaneDraft();
     }
     renderSettingsScreen();
@@ -1958,7 +1978,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       catalog.custom_upload = {
         name: customPlaneDraft.name || 'Custom Plane',
         type: 'custom',
-        description: customPlaneDraft.description || 'User imported aircraft for free flight.',
+        description: customPlaneDraft.description || 'User imported aircraft profile synced to this pilot account.',
         stats: {
           speed: Number(customPlaneDraft.speed) || 3,
           agility: Number(customPlaneDraft.agility) || 3,
@@ -1979,7 +1999,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     return {
       name: customPlaneDraft.name || 'Custom Plane',
       type: 'custom',
-      description: customPlaneDraft.description || 'User imported aircraft for free flight.',
+      description: customPlaneDraft.description || 'User imported aircraft profile synced to this pilot account.',
       color: customPlaneDraft.color || '#87cfff',
       accentColor: customPlaneDraft.accentColor || '#ffffff',
       stats: {
@@ -2569,6 +2589,62 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       toast('Developer repair sweep complete', 1800);
     },
 
+    devArmRoutePoint() {
+      if (authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      if (!engine) {
+        toast('Launch a flight first', 1800);
+        return;
+      }
+      const result = engine?.armDevRouteCapture?.();
+      syncFlightToolbar({ ...(state ?? {}), ...(result ?? {}) });
+      toast('Click the terrain to place the next route point', 2200);
+    },
+
+    devToggleRouteAutofly() {
+      if (authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      if (!engine) {
+        toast('Launch a flight first', 1800);
+        return;
+      }
+      const result = engine?.toggleDevRouteAutofly?.();
+      syncFlightToolbar({ ...(state ?? {}), ...(result ?? {}) });
+      toast(result?.devAutoPathActive ? 'Developer route autofly engaged' : 'Developer route autofly disengaged', 1800);
+    },
+
+    devToggleRaceAutofly() {
+      if (authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      if (!engine) {
+        toast('Launch a flight first', 1800);
+        return;
+      }
+      const result = engine?.toggleDevRaceAutofly?.();
+      syncFlightToolbar({ ...(state ?? {}), ...(result ?? {}) });
+      toast(result?.devAutoRaceActive ? 'Developer auto-win engaged' : 'Developer auto-win disengaged', 1800);
+    },
+
+    devClearRoute() {
+      if (authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return;
+      }
+      if (!engine) {
+        toast('Launch a flight first', 1800);
+        return;
+      }
+      const result = engine?.clearDevRoute?.();
+      syncFlightToolbar({ ...(state ?? {}), ...(result ?? {}) });
+      toast('Developer route cleared', 1600);
+    },
+
     switchTab(tab) {
       ['aircraft','env','mode','custom'].forEach(t => {
         document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
@@ -2598,8 +2674,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     selectMode(key) {
       const wasOnline = isOnlineRaceMode(sel.mode);
       sel.mode = key;
-      if (sel.aircraft === 'custom_upload' && key !== 'free_fly') {
-        toast('Custom planes are limited to Free Flight', 2200);
+      const devBypass = authState?.user?.role === 'dev';
+      if (sel.aircraft === 'custom_upload' && key !== 'free_fly' && !devBypass) {
+        toast('Custom planes are limited to Free Flight unless you are signed in as developer', 2200);
         sel.mode = 'free_fly';
         key = 'free_fly';
       }
@@ -2709,11 +2786,12 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         this.switchTab('custom');
         return;
       }
-      if (sel.aircraft === 'custom_upload' && sel.mode !== 'free_fly') {
-        toast('Custom planes can only fly in Free Flight', 2200);
+      const devBypass = authState?.user?.role === 'dev';
+      if (sel.aircraft === 'custom_upload' && sel.mode !== 'free_fly' && !devBypass) {
+        toast('Custom planes can only fly in Free Flight unless you are signed in as developer', 2200);
         sel.mode = 'free_fly';
       }
-      if (sel.mode !== 'free_fly' && !careerStore.canUsePlane(sel.aircraft, sel.mode)) {
+      if (sel.mode !== 'free_fly' && !(devBypass && sel.aircraft === 'custom_upload') && !careerStore.canUsePlane(sel.aircraft, sel.mode)) {
         toast('Buy a race license for that plane first', 2200);
         this.showGarage();
         return;
@@ -2806,6 +2884,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           hud?.update(state);
           toast(`Gun Aim: ${mode.toUpperCase()}`, 1400);
         },
+        onDevPathChange: devState => {
+          state = { ...(state ?? {}), ...(devState ?? {}) };
+          syncFlightToolbar(state);
+        },
         onMouseToggle: on => toast(on ? '🖱 Mouse Steer ON' : '🖱 Mouse Steer OFF'),
         onChallengeComplete: result => this.showChallengeDone(result),
         onRaceComplete: result => this.showRaceDone(result),
@@ -2822,6 +2904,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         userId: authState?.user?.id ?? null,
         roomSession: onlineSession,
         spawnSlot,
+        userRole: authState?.user?.role ?? 'player',
       });
 
       // Create HUD after engine.init so worldMgr has rings loaded
@@ -3197,17 +3280,31 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     onCustomPlaneFile(event) {
       const file = event?.target?.files?.[0];
       if (!file) return;
-      if (customPlaneAssetUrl) URL.revokeObjectURL(customPlaneAssetUrl);
+      if (customPlaneAssetUrl && customPlaneAssetUrl.startsWith('blob:')) URL.revokeObjectURL(customPlaneAssetUrl);
       customPlaneFile = file;
       customPlaneAssetUrl = URL.createObjectURL(file);
       customPlaneDraft.fileName = file.name;
       customPlaneDraft.ready = true;
-      saveCustomPlaneDraft();
-      ensureCustomAircraftDefinition();
-      buildSelectionUI();
-      this.switchTab('custom');
-      queueProfileSync();
-      toast('Custom aircraft model loaded', 1800);
+      const reader = new FileReader();
+      reader.onload = () => {
+        customPlaneDraft.assetDataUrl = typeof reader.result === 'string' ? reader.result : null;
+        saveCustomPlaneDraft();
+        ensureCustomAircraftDefinition();
+        buildSelectionUI();
+        this.switchTab('custom');
+        queueProfileSync();
+        toast('Custom aircraft model loaded', 1800);
+      };
+      reader.onerror = () => {
+        customPlaneDraft.assetDataUrl = null;
+        saveCustomPlaneDraft();
+        ensureCustomAircraftDefinition();
+        buildSelectionUI();
+        this.switchTab('custom');
+        queueProfileSync();
+        toast('Custom aircraft loaded locally, but cloud sync for the model failed', 2200);
+      };
+      reader.readAsDataURL(file);
     },
 
     prepareCustomPlane() {
@@ -3216,9 +3313,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         return;
       }
       this.selectAircraft('custom_upload');
-      this.selectMode('free_fly');
+      if (authState?.user?.role !== 'dev') this.selectMode('free_fly');
       this.switchTab('aircraft');
-      toast('Custom plane is ready for Free Flight', 1800);
+      toast(authState?.user?.role === 'dev' ? 'Custom plane is ready for any mode' : 'Custom plane is ready for Free Flight', 1800);
     },
 
     startRebind(actionId) {
@@ -3344,6 +3441,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     const gunModeBtn = document.getElementById('btn-gun-mode-toggle');
     const assistBtn = document.getElementById('btn-assist-toggle');
     const cameraBtn = document.getElementById('btn-camera-toggle');
+    const devCaptureBtn = document.getElementById('btn-dev-route-capture');
+    const devRouteBtn = document.getElementById('btn-dev-route-toggle');
+    const devRaceBtn = document.getElementById('btn-dev-race-win');
+    const devClearBtn = document.getElementById('btn-dev-route-clear');
     const resetBtn = document.getElementById('btn-reset-flight');
     if (guideBtn) {
       const enabled = nextState?.guidanceEnabled !== false;
@@ -3375,6 +3476,29 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     if (cameraBtn) {
       const mode = (nextState?.cameraMode ?? 'follow').toUpperCase();
       cameraBtn.textContent = `Camera: ${mode}`;
+    }
+    const devVisible = authState?.user?.role === 'dev' && !!nextState?.devModeAvailable;
+    if (devCaptureBtn) {
+      devCaptureBtn.style.display = devVisible ? 'inline-flex' : 'none';
+      const count = nextState?.devRoutePointCount ?? 0;
+      devCaptureBtn.textContent = nextState?.devRouteCaptureArmed ? `Placing ${count}/10` : `Route ${count}/10`;
+      devCaptureBtn.classList.toggle('btn-primary', !!nextState?.devRouteCaptureArmed);
+      devCaptureBtn.classList.toggle('btn-ghost', !nextState?.devRouteCaptureArmed);
+    }
+    if (devRouteBtn) {
+      devRouteBtn.style.display = devVisible ? 'inline-flex' : 'none';
+      devRouteBtn.textContent = nextState?.devAutoPathActive ? 'Fly Route ON' : 'Fly Route';
+      devRouteBtn.classList.toggle('btn-accent', !!nextState?.devAutoPathActive);
+      devRouteBtn.classList.toggle('btn-ghost', !nextState?.devAutoPathActive);
+    }
+    if (devRaceBtn) {
+      devRaceBtn.style.display = devVisible ? 'inline-flex' : 'none';
+      devRaceBtn.textContent = nextState?.devAutoRaceActive ? 'Auto Win ON' : 'Auto Win';
+      devRaceBtn.classList.toggle('btn-accent', !!nextState?.devAutoRaceActive);
+      devRaceBtn.classList.toggle('btn-ghost', !nextState?.devAutoRaceActive);
+    }
+    if (devClearBtn) {
+      devClearBtn.style.display = devVisible ? 'inline-flex' : 'none';
     }
     if (resetBtn) {
       resetBtn.style.display = nextState?.landed === 'crash' ? 'inline-flex' : 'none';
@@ -3422,6 +3546,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     document.getElementById('btn-gun-mode-toggle')?.addEventListener('click', () => App.toggleGunMode());
     document.getElementById('btn-assist-toggle')?.addEventListener('click', () => App.toggleAssist());
     document.getElementById('btn-camera-toggle')?.addEventListener('click', () => App.cycleCamera());
+    document.getElementById('btn-dev-route-capture')?.addEventListener('click', () => App.devArmRoutePoint());
+    document.getElementById('btn-dev-route-toggle')?.addEventListener('click', () => App.devToggleRouteAutofly());
+    document.getElementById('btn-dev-race-win')?.addEventListener('click', () => App.devToggleRaceAutofly());
+    document.getElementById('btn-dev-route-clear')?.addEventListener('click', () => App.devClearRoute());
     document.getElementById('btn-reset-flight')?.addEventListener('click', () => App.resetFlight());
 
     document.querySelectorAll('[data-tab]').forEach(btn => {

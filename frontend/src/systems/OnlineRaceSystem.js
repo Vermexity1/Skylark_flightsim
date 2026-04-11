@@ -34,6 +34,8 @@ export class OnlineRaceSystem {
     this._roomStatus = 'waiting';
     this._countdown = 0;
     this._authToken = null;
+    this.offTrackTimer = 0;
+    this._pendingRespawnTransform = null;
   }
 
   async start(mode, aircraftType, options = {}) {
@@ -54,6 +56,8 @@ export class OnlineRaceSystem {
     this.rules = { ...this.rules, ...(this.room?.rules ?? {}) };
     this._roomStatus = this.room?.status ?? 'waiting';
     this._countdown = this.room?.countdownRemaining ?? 0;
+    this.offTrackTimer = 0;
+    this._pendingRespawnTransform = null;
     this._applySnapshot(options.roomSession);
     return this.getStatus();
   }
@@ -86,7 +90,7 @@ export class OnlineRaceSystem {
     this._directionHint = this._getDirectionHint();
 
     if (this._roomStatus === 'live') {
-      this._updatePlayerProgress(playerState);
+      this._updatePlayerProgress(playerState, dt);
     }
 
     if (this._pollAccumulator >= this._pollInterval && !this._syncInFlight) {
@@ -102,8 +106,19 @@ export class OnlineRaceSystem {
     return this.getStatus();
   }
 
-  _updatePlayerProgress(playerState) {
+  _updatePlayerProgress(playerState, dt) {
     if (this.playerFinished) return;
+    const trackState = this.world.getRaceTrackState?.(playerState.position) ?? null;
+    if (trackState && !trackState.inside) {
+      this.offTrackTimer += dt;
+      if (this.offTrackTimer >= 5) {
+        this._queueRespawn();
+        return;
+      }
+    } else {
+      this.offTrackTimer = Math.max(0, this.offTrackTimer - dt * 2.2);
+    }
+
     const targetGate = this.track[this.playerGate];
     if (targetGate && playerState.position.distanceTo(targetGate) <= RACE.GATE_RADIUS) {
       this.playerGate += 1;
@@ -115,13 +130,17 @@ export class OnlineRaceSystem {
         }
       }
     }
-    const gateFraction = this._gateFraction(playerState.position, this.playerGate);
+    const gateFraction = this._segmentFraction(
+      playerState.position,
+      (this.playerGate - 1 + this.track.length) % this.track.length,
+      this.playerGate % this.track.length
+    );
     this.playerProgress = (this.playerLap - 1) * this.track.length + this.playerGate + gateFraction;
   }
 
-  _gateFraction(position, gateIndex) {
-    const current = this.track[gateIndex % this.track.length];
-    const previous = this.track[(gateIndex - 1 + this.track.length) % this.track.length];
+  _segmentFraction(position, previousIndex, currentIndex) {
+    const current = this.track[currentIndex % this.track.length];
+    const previous = this.track[(previousIndex + this.track.length) % this.track.length];
     if (!current || !previous) return 0;
     const segment = current.clone().sub(previous);
     const total = Math.max(1, segment.length());
@@ -285,6 +304,24 @@ export class OnlineRaceSystem {
     this.playerPlace = entries.findIndex(entry => entry.id === (this.playerId ?? 'self')) + 1;
   }
 
+  _queueRespawn() {
+    const spawn = this.world.getSpawnTransform?.(this.mode, 0) ?? null;
+    if (!spawn) return;
+    this.playerGate = 0;
+    this.playerProgress = (this.playerLap - 1) * this.track.length;
+    this.offTrackTimer = 0;
+    this._pendingRespawnTransform = {
+      position: spawn.position.clone(),
+      quaternion: spawn.quaternion.clone(),
+      speed: 0,
+      throttle: 0,
+    };
+  }
+
+  clearRespawnRequest() {
+    this._pendingRespawnTransform = null;
+  }
+
   maybeFinalizeCareer(careerSystem) {
     if (!this.active || !this.playerFinished || this._lastResult) return this._lastResult;
     const result = careerSystem?.applyRaceResult?.(this.mode, this.playerPlace) ?? null;
@@ -310,8 +347,12 @@ export class OnlineRaceSystem {
       raceRoomName: this.room?.name ?? '',
       raceRoomStatus: this._roomStatus,
       raceNextGate: this.playerGate + 1,
+      raceNextGateIndex: this.playerGate,
       raceNextGateDistance,
       raceDirectionHint: this._directionHint,
+      raceOffTrackTimer: this.offTrackTimer,
+      raceOffTrackWarning: this.offTrackTimer > 0,
+      raceRespawnTransform: this._pendingRespawnTransform,
       raceResult: this._lastResult,
       raceRules: { ...this.rules },
     };

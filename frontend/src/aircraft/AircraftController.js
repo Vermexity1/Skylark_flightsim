@@ -327,6 +327,8 @@ export class AircraftController {
           this.landedTimer = 2;
           if (impactSpeed >= 3) {
             this._registerImpact('hard_landing', THREE.MathUtils.clamp(impactSpeed * 0.9, 3, 10), THREE.MathUtils.clamp(impactSpeed / 18, 0.25, 0.65));
+          } else {
+            this._registerImpact('smooth', 0, THREE.MathUtils.clamp(impactSpeed / 8, 0.12, 0.24));
           }
         }
         this.isLanded = true;

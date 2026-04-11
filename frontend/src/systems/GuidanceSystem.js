@@ -31,6 +31,7 @@ export class GuidanceSystem {
 
     this._raycaster = new THREE.Raycaster();
     this._pointer = new THREE.Vector2();
+    this.externalPointClickHandler = null;
     this._forward = new THREE.Vector3();
     this._right = new THREE.Vector3();
     this._up = new THREE.Vector3();
@@ -799,6 +800,10 @@ export class GuidanceSystem {
     return point;
   }
 
+  setExternalPointClickHandler(handler = null) {
+    this.externalPointClickHandler = typeof handler === 'function' ? handler : null;
+  }
+
   _selectLandingTarget(point) {
     this.landingTarget = point.clone();
     this.status.landingTargetSelected = true;
@@ -818,6 +823,7 @@ export class GuidanceSystem {
   _onClick(event) {
     const point = this._pickTerrainPoint(event);
     if (!point) return;
+    if (this.externalPointClickHandler?.(point, event) === true) return;
     this._selectLandingTarget(point);
   }
 

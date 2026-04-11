@@ -26,6 +26,9 @@ export class RaceSystem {
     this._shotCooldown = 0;
     this._lastResult = null;
     this._playerPosition = new THREE.Vector3();
+    this.offTrackTimer = 0;
+    this._pendingRespawnTransform = null;
+    this.playerSpawnSlot = 0;
   }
 
   start(mode, playerAircraftType, options = {}) {
@@ -41,7 +44,10 @@ export class RaceSystem {
     this.playerHitFlash = 0;
     this.countdown = 3.8;
     this.practiceRankIndex = options.practiceRankIndex ?? 0;
+    this.playerSpawnSlot = options.spawnSlot ?? 0;
     this._lastResult = null;
+    this.offTrackTimer = 0;
+    this._pendingRespawnTransform = null;
     this.finishOrder = [];
 
     const difficulty = mode === 'race_practice'
@@ -109,7 +115,7 @@ export class RaceSystem {
     this._playerPosition.copy(playerState.position);
     this._handlePlayerShots(shotPackets, gunProfile);
     if (this.countdown <= 0) {
-      this._updatePlayerProgress(playerState);
+      this._updatePlayerProgress(playerState, dt);
     }
     this.playerStunTimer = Math.max(0, this.playerStunTimer - dt);
     this.playerHitFlash = Math.max(0, this.playerHitFlash - dt * 1.4);
@@ -120,8 +126,19 @@ export class RaceSystem {
     return this.getStatus();
   }
 
-  _updatePlayerProgress(playerState) {
+  _updatePlayerProgress(playerState, dt) {
     if (this.playerFinished) return;
+    const trackState = this.world.getRaceTrackState?.(playerState.position) ?? null;
+    if (trackState && !trackState.inside) {
+      this.offTrackTimer += dt;
+      if (this.offTrackTimer >= 5) {
+        this._queueRespawn();
+        return;
+      }
+    } else {
+      this.offTrackTimer = Math.max(0, this.offTrackTimer - dt * 2.2);
+    }
+
     const targetGate = this.track[this.playerGate];
     if (playerState.position.distanceTo(targetGate) <= RACE.GATE_RADIUS) {
       this.playerGate++;
@@ -134,7 +151,11 @@ export class RaceSystem {
         }
       }
     }
-    const gateFraction = this._gateFraction(playerState.position, this.playerGate);
+    const gateFraction = this._segmentFraction(
+      playerState.position,
+      (this.playerGate - 1 + this.track.length) % this.track.length,
+      this.playerGate % this.track.length
+    );
     this.playerProgress = (this.playerLap - 1) * this.track.length + this.playerGate + gateFraction;
   }
 
@@ -186,7 +207,11 @@ export class RaceSystem {
       }
     }
 
-    const gateFraction = this._gateFraction(racer.position, racer.gateIndex);
+    const gateFraction = this._segmentFraction(
+      racer.position,
+      (racer.gateIndex - 1 + this.track.length) % this.track.length,
+      racer.gateIndex % this.track.length
+    );
     racer.progress = (racer.lap - 1) * this.track.length + racer.gateIndex + gateFraction;
 
     const toPlayer = playerState.position.clone().sub(racer.position);
@@ -228,9 +253,9 @@ export class RaceSystem {
     }
   }
 
-  _gateFraction(position, gateIndex) {
-    const current = this.track[gateIndex % this.track.length];
-    const previous = this.track[(gateIndex - 1 + this.track.length) % this.track.length];
+  _segmentFraction(position, previousIndex, currentIndex) {
+    const current = this.track[currentIndex % this.track.length];
+    const previous = this.track[(previousIndex + this.track.length) % this.track.length];
     const segment = current.clone().sub(previous);
     const total = Math.max(1, segment.length());
     const local = position.clone().sub(previous);
@@ -239,14 +264,43 @@ export class RaceSystem {
 
   _updateStandings() {
     const entries = [
-      { id: 'player', progress: this.playerProgress, finished: this.playerFinished },
-      ...this.aiRacers.map(racer => ({ id: racer.id, progress: racer.progress, finished: racer.finished })),
+      {
+        id: 'player',
+        progress: this.playerProgress,
+        finished: this.playerFinished,
+        place: this.finishOrder.find(entry => entry.id === 'player')?.place ?? null,
+      },
+      ...this.aiRacers.map(racer => ({
+        id: racer.id,
+        progress: racer.progress,
+        finished: racer.finished,
+        place: racer.place ?? this.finishOrder.find(entry => entry.id === racer.id)?.place ?? null,
+      })),
     ];
     entries.sort((a, b) => {
       if (a.finished !== b.finished) return a.finished ? -1 : 1;
+      if (a.finished && b.finished && a.place !== b.place) return (a.place ?? 999) - (b.place ?? 999);
       return b.progress - a.progress;
     });
     this.playerPlace = entries.findIndex(entry => entry.id === 'player') + 1;
+  }
+
+  _queueRespawn() {
+    const spawn = this.world.getSpawnTransform?.(this.mode, this.playerSpawnSlot) ?? null;
+    if (!spawn) return;
+    this.playerGate = 0;
+    this.playerProgress = (this.playerLap - 1) * this.track.length;
+    this.offTrackTimer = 0;
+    this._pendingRespawnTransform = {
+      position: spawn.position.clone(),
+      quaternion: spawn.quaternion.clone(),
+      speed: 0,
+      throttle: 0,
+    };
+  }
+
+  clearRespawnRequest() {
+    this._pendingRespawnTransform = null;
   }
 
   maybeFinalizeCareer(careerSystem) {
@@ -290,8 +344,12 @@ export class RaceSystem {
       raceCountdownActive: this.countdown > 0,
       racePracticeRankName: (RACE.RANKS[this.practiceRankIndex] ?? RACE.RANKS[0]).name,
       raceNextGate: this.playerGate + 1,
+      raceNextGateIndex: this.playerGate,
       raceNextGateDistance,
       raceDirectionHint: this._getDirectionHint(),
+      raceOffTrackTimer: this.offTrackTimer,
+      raceOffTrackWarning: this.offTrackTimer > 0,
+      raceRespawnTransform: this._pendingRespawnTransform,
       raceResult: this._lastResult,
     };
   }

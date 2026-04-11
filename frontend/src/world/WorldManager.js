@@ -510,23 +510,72 @@ export class WorldManager {
 
   getRaceGuideTarget(position) {
     if (this.envKey !== 'air_race' || !position) return null;
+    const state = this.getRaceTrackState(position);
+    return this.getRaceGuideTargetByIndex(state?.nextGateIndex ?? 0);
+  }
+
+  getRaceGuideTargetByIndex(index = 0) {
     const course = CHALLENGE.COURSES.air_race;
-    let bestIndex = 0;
-    let bestDistance = Infinity;
+    const point = course[((index % course.length) + course.length) % course.length];
+    return point ? new THREE.Vector3(point.x, point.y, point.z) : null;
+  }
+
+  getRaceTrackState(position) {
+    if (!position) return null;
+
+    const course = CHALLENGE.COURSES.air_race;
+    const horizontalPoint = this._guideSample.set(position.x, 0, position.z);
+    let best = null;
+
     for (let i = 0; i < course.length; i++) {
-      const point = course[i];
-      const dx = point.x - position.x;
-      const dy = point.y - position.y;
-      const dz = point.z - position.z;
-      const distanceSq = dx * dx + dy * dy + dz * dz;
-      if (distanceSq < bestDistance) {
-        bestDistance = distanceSq;
-        bestIndex = i;
+      const start = course[i];
+      const end = course[(i + 1) % course.length];
+      this._guideDirection.set(end.x - start.x, 0, end.z - start.z);
+      const lengthSq = Math.max(this._guideDirection.lengthSq(), 1);
+      const t = THREE.MathUtils.clamp(
+        ((horizontalPoint.x - start.x) * this._guideDirection.x + (horizontalPoint.z - start.z) * this._guideDirection.z) / lengthSq,
+        0,
+        1
+      );
+      const closestX = THREE.MathUtils.lerp(start.x, end.x, t);
+      const closestZ = THREE.MathUtils.lerp(start.z, end.z, t);
+      const closestY = THREE.MathUtils.lerp(start.y, end.y, t);
+      const lateralDistance = Math.hypot(position.x - closestX, position.z - closestZ);
+      const verticalDistance = Math.abs(position.y - closestY);
+      const score = lateralDistance + verticalDistance * 0.22;
+
+      if (!best || score < best.score) {
+        const direction = new THREE.Vector3(end.x - start.x, end.y - start.y, end.z - start.z).normalize();
+        best = {
+          segmentIndex: i,
+          nextGateIndex: (i + 1) % course.length,
+          fraction: t,
+          progress: i + t,
+          closestPoint: new THREE.Vector3(closestX, closestY, closestZ),
+          direction,
+          lateralDistance,
+          verticalDistance,
+          score,
+        };
       }
     }
-    const nextIndex = (bestIndex + 1) % course.length;
-    const point = course[nextIndex];
-    return new THREE.Vector3(point.x, point.y, point.z);
+
+    if (!best) return null;
+
+    const inStartBox =
+      position.x >= -560 && position.x <= 560 &&
+      position.z >= 2240 && position.z <= 2760 &&
+      position.y >= 420 && position.y <= 780;
+
+    const inside = inStartBox || (
+      best.lateralDistance <= 520 &&
+      best.verticalDistance <= 250
+    );
+
+    return {
+      ...best,
+      inside,
+    };
   }
 
   _sampleFootprintStats(centerX, centerZ, halfWidth, halfDepth) {
