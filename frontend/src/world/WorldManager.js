@@ -484,7 +484,7 @@ export class WorldManager {
   }
 
   getSpawnTransform(mode = 'free_fly', slot = 0) {
-    if (mode.startsWith('race_')) {
+    if (mode.startsWith('race_') || this.envKey === 'air_race') {
       const start = RACE.START_POSITIONS[Math.min(slot, RACE.START_POSITIONS.length - 1)] ?? RACE.START_POSITIONS[0];
       const gate = CHALLENGE.COURSES.air_race[0];
       const position = new THREE.Vector3(start.x, 0, start.z);
@@ -506,6 +506,27 @@ export class WorldManager {
       new THREE.Matrix4().lookAt(position, lookTarget, new THREE.Vector3(0, 1, 0))
     );
     return { position, quaternion, speed: 0, throttle: 0 };
+  }
+
+  getRaceGuideTarget(position) {
+    if (this.envKey !== 'air_race' || !position) return null;
+    const course = CHALLENGE.COURSES.air_race;
+    let bestIndex = 0;
+    let bestDistance = Infinity;
+    for (let i = 0; i < course.length; i++) {
+      const point = course[i];
+      const dx = point.x - position.x;
+      const dy = point.y - position.y;
+      const dz = point.z - position.z;
+      const distanceSq = dx * dx + dy * dy + dz * dz;
+      if (distanceSq < bestDistance) {
+        bestDistance = distanceSq;
+        bestIndex = i;
+      }
+    }
+    const nextIndex = (bestIndex + 1) % course.length;
+    const point = course[nextIndex];
+    return new THREE.Vector3(point.x, point.y, point.z);
   }
 
   _sampleFootprintStats(centerX, centerZ, halfWidth, halfDepth) {
@@ -2004,7 +2025,7 @@ export class WorldManager {
       floorMaterial.clone(),
       new THREE.Vector3(0, startDeckCenterY, 2500),
       0,
-      true
+      false
     );
     const startRoof = makeSegmentBox(
       1120,
@@ -2068,7 +2089,7 @@ export class WorldManager {
         floorMaterial.clone(),
         new THREE.Vector3(center.x, floorY, center.z),
         yaw,
-        true
+        false
       );
       makeSegmentBox(
         corridorWidth + wallThickness * 2,

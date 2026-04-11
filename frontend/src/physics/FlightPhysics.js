@@ -20,7 +20,7 @@ export class FlightPhysics {
    * @returns {Vector3}      - net force in world space (Newtons)
    */
   static calculate(state, config) {
-    const { velocity, quaternion, throttle } = state;
+    const { velocity, quaternion, throttle, brake } = state;
 
     const speed   = velocity.length();
     const speedSq = speed * speed;
@@ -67,7 +67,8 @@ export class FlightPhysics {
       // ── Drag ─────────────────────────────────────────────
       // Parasitic drag + induced drag (rises with lift²)
       const inducedDrag = (liftCoeff * liftCoeff) / (Math.PI * 6.5);
-      const totalDragCoeff = config.dragCoefficient + inducedDrag;
+      const airBrakeFactor = brake ? 2.6 : 1;
+      const totalDragCoeff = (config.dragCoefficient + inducedDrag) * airBrakeFactor;
       const dragMag = 0.5 * PHYSICS.AIR_DENSITY * speedSq * config.wingArea * totalDragCoeff;
       force.addScaledVector(_velDir, -dragMag);
 

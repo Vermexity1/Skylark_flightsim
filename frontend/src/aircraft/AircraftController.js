@@ -226,7 +226,13 @@ export class AircraftController {
 
     // ── Physics forces ──────────────────────────────────────
     const forces = FlightPhysics.calculate(
-      { position: this.position, velocity: this.velocity, quaternion: this.quaternion, throttle: this.throttle * conditionFactor },
+      {
+        position: this.position,
+        velocity: this.velocity,
+        quaternion: this.quaternion,
+        throttle: this.throttle * conditionFactor,
+        brake: !!input.brake,
+      },
       this.config
     );
 
@@ -349,7 +355,7 @@ export class AircraftController {
       this.throttle < 0.04 &&
       !input.boost &&
       Math.abs(input.throttle) < 0.05 &&
-      speed < Math.max(4, this.config.stallSpeed * 0.38)
+      speed < Math.max(0.8, this.config.stallSpeed * 0.06)
     ) {
       this.position.y = groundLevel + this.collisionBottomOffset;
       this.velocity.set(0, 0, 0);
@@ -357,13 +363,13 @@ export class AircraftController {
 
     if (input.brake && this.nearGround) {
       const surfaceSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-      const brakingAccel = (this.isLanded ? 38 : 20) + Math.max(12, this.config.stallSpeed * 0.32);
+      const brakingAccel = PHYSICS.GRAVITY * (this.isLanded ? 0.72 : 0.34) + Math.max(2, this.config.stallSpeed * 0.08);
       const nextSurfaceSpeed = Math.max(0, surfaceSpeed - brakingAccel * dt);
       const scale = surfaceSpeed > 0.0001 ? nextSurfaceSpeed / surfaceSpeed : 0;
       this.velocity.x *= scale;
       this.velocity.z *= scale;
       this.velocity.y = Math.min(this.velocity.y, 0);
-      if (this.isLanded && this.throttle < 0.05 && nextSurfaceSpeed < Math.max(0.2, this.config.stallSpeed * 0.01)) {
+      if (this.isLanded && this.throttle < 0.02 && nextSurfaceSpeed < Math.max(0.03, this.config.stallSpeed * 0.0015)) {
         this.velocity.set(0, 0, 0);
       }
     }
@@ -596,10 +602,10 @@ export class AircraftController {
     if (speed < 0.001) return;
 
     if ((this.isLanded || this.landed === 'smooth' || this.landed === 'hard') && (input?.brake || this.throttle < 0.06)) {
-      const damping = Math.exp(-dt * 9.5);
+      const damping = Math.exp(-dt * (input?.brake ? 4.8 : 3.4));
       this.velocity.x *= damping;
       this.velocity.z *= damping;
-      if (Math.hypot(this.velocity.x, this.velocity.z) < Math.max(0.12, this.config.stallSpeed * 0.008)) {
+      if (Math.hypot(this.velocity.x, this.velocity.z) < Math.max(0.04, this.config.stallSpeed * 0.002)) {
         this.velocity.x = 0;
         this.velocity.z = 0;
       }

@@ -312,7 +312,6 @@ export class GameEngine {
     const shotPackets = this.guns.getCollisionPackets();
 
     this.world.update(s, dt);
-    this.guidance.update(s, dt);
     this.camera.update(s, dt);
     this.audio.update(s.throttle, s.speed, this.aircraft.config?.maxSpeed ?? 200, s.isStalling);
 
@@ -385,6 +384,13 @@ export class GameEngine {
         }
       }
     }
+
+    const guidanceState = {
+      ...s,
+      ...raceStatus,
+      raceGuideTarget: this.world.getRaceGuideTarget?.(s.position) ?? null,
+    };
+    this.guidance.update(guidanceState, dt);
 
     this._state = {
       ...s,

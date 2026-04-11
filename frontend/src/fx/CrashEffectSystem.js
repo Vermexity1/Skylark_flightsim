@@ -21,6 +21,13 @@ export class CrashEffectSystem {
     this.scene = scene;
     this.loader = new THREE.TextureLoader();
     this.activeEffects = [];
+    this._sparkGeometry = new THREE.SphereGeometry(0.22, 5, 5);
+    this._debrisGeometries = [
+      new THREE.BoxGeometry(0.3, 0.18, 0.34),
+      new THREE.BoxGeometry(0.4, 0.16, 0.46),
+      new THREE.BoxGeometry(0.52, 0.22, 0.28),
+    ];
+    this._puffGeometry = new THREE.SphereGeometry(1.2, 7, 7);
     this.textures = {
       explosion: this._loadTexture(
         ASSET_SOURCES.effects.explosion.file,
@@ -132,7 +139,7 @@ export class CrashEffectSystem {
     light.position.y = 3;
     group.add(light);
 
-    const sparkMaterial = new THREE.MeshBasicMaterial({ color: 0xffb45a });
+    const sparkMaterial = new THREE.MeshBasicMaterial({ color: 0xffb45a, transparent: true, opacity: 1 });
     const debrisMaterial = new THREE.MeshStandardMaterial({
       color: 0x5b636b,
       roughness: 0.92,
@@ -145,30 +152,34 @@ export class CrashEffectSystem {
       transparent: true,
       opacity: 0.78,
     });
-    for (let i = 0; i < 14; i++) {
-      const spark = new THREE.Mesh(new THREE.SphereGeometry(0.18 + Math.random() * 0.16, 6, 6), sparkMaterial.clone());
+    for (let i = 0; i < 10; i++) {
+      const spark = new THREE.Mesh(this._sparkGeometry, sparkMaterial);
       spark.position.set((Math.random() - 0.5) * 2.2, 0.8 + Math.random() * 1.6, (Math.random() - 0.5) * 2.2);
+      spark.scale.setScalar(0.75 + Math.random() * 0.9);
       spark.userData.velocity = new THREE.Vector3(
         (Math.random() - 0.5) * 26,
         12 + Math.random() * 18,
         (Math.random() - 0.5) * 26
       ).multiplyScalar(intensity);
+      spark.userData.fade = 0.85 + Math.random() * 0.25;
       sparks.push(spark);
       group.add(spark);
     }
-    for (let i = 0; i < 5; i++) {
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(1.1 + Math.random() * 0.6, 8, 8), puffMaterial.clone());
+    for (let i = 0; i < 4; i++) {
+      const puff = new THREE.Mesh(this._puffGeometry, puffMaterial.clone());
       puff.position.set((Math.random() - 0.5) * 1.8, 1.4 + i * 1.1, (Math.random() - 0.5) * 1.8);
       puff.userData.rise = 1.4 + Math.random() * 1.2;
+      puff.scale.setScalar(0.82 + Math.random() * 0.55);
       smokePuffs.push(puff);
       group.add(puff);
     }
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 8; i++) {
       const chunk = new THREE.Mesh(
-        new THREE.BoxGeometry(0.28 + Math.random() * 0.42, 0.18 + Math.random() * 0.2, 0.3 + Math.random() * 0.54),
-        debrisMaterial.clone()
+        this._debrisGeometries[i % this._debrisGeometries.length],
+        debrisMaterial
       );
       chunk.position.set((Math.random() - 0.5) * 2.4, 0.8 + Math.random() * 1.2, (Math.random() - 0.5) * 2.4);
+      chunk.scale.setScalar(0.8 + Math.random() * 1.35);
       chunk.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
       chunk.userData.velocity = new THREE.Vector3(
         (Math.random() - 0.5) * 18,
@@ -198,6 +209,7 @@ export class CrashEffectSystem {
       elapsed: 0,
       duration: 2.8,
       intensity,
+      sharedMaterials: { sparkMaterial, debrisMaterial, puffMaterial },
     });
   }
 
@@ -224,7 +236,7 @@ export class CrashEffectSystem {
       fx.sparks.forEach((spark, index) => {
         spark.userData.velocity.y -= dt * 28;
         spark.position.addScaledVector(spark.userData.velocity, dt);
-        spark.material.opacity = Math.max(0, 1 - t * 1.6 - index * 0.03);
+        spark.material.opacity = Math.max(0, 1 - t * (1.45 + spark.userData.fade) - index * 0.02);
         spark.scale.setScalar(Math.max(0.18, 1 - t * 1.2));
       });
 
@@ -247,9 +259,15 @@ export class CrashEffectSystem {
       fx.light.intensity = Math.max(0, (2.6 - t * 3.1) * fx.intensity);
 
       if (fx.elapsed >= fx.duration) {
+        const { sparkMaterial, debrisMaterial, puffMaterial } = fx.sharedMaterials;
         fx.group.traverse(node => {
-          node.material?.dispose?.();
+          if (node.material && node.material !== sparkMaterial && node.material !== debrisMaterial) {
+            node.material.dispose?.();
+          }
         });
+        debrisMaterial.dispose();
+        puffMaterial.dispose();
+        sparkMaterial.dispose();
         this.scene.remove(fx.group);
         this.activeEffects.splice(i, 1);
       }
@@ -258,11 +276,20 @@ export class CrashEffectSystem {
 
   destroy() {
     this.activeEffects.forEach(fx => {
+      const { sparkMaterial, debrisMaterial, puffMaterial } = fx.sharedMaterials ?? {};
       fx.group.traverse(node => {
-        node.material?.dispose?.();
+        if (node.material && node.material !== sparkMaterial && node.material !== debrisMaterial) {
+          node.material.dispose?.();
+        }
       });
+      sparkMaterial?.dispose?.();
+      debrisMaterial?.dispose?.();
+      puffMaterial?.dispose?.();
       this.scene.remove(fx.group);
     });
     this.activeEffects = [];
+    this._sparkGeometry?.dispose?.();
+    this._puffGeometry?.dispose?.();
+    this._debrisGeometries?.forEach(geometry => geometry.dispose?.());
   }
 }

@@ -56,6 +56,7 @@ export class GuidanceSystem {
     this._leftWingBeam = this._makeBeam(0.1, 0xff9d3a, 0.94, 0.12);
     this._rightWingBeam = this._makeBeam(0.1, 0xff9d3a, 0.94, 0.12);
     this._targetBeam = this._makeBeam(0.1, 0x56ff8a, 0.92, 0.12);
+    this._raceBeam = this._makeBeam(0.11, 0x7df0ff, 0.94, 0.14);
     this._futurePathLine = new THREE.Mesh(
       new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -10)]), 8, 0.22, 8, false),
       new THREE.MeshBasicMaterial({
@@ -91,6 +92,7 @@ export class GuidanceSystem {
       this._leftWingBeam,
       this._rightWingBeam,
       this._targetBeam,
+      this._raceBeam,
       this._futurePathGlow,
       this._futurePathLine,
       this._targetRing
@@ -575,6 +577,9 @@ export class GuidanceSystem {
     }
     this.group.visible = true;
 
+    const raceTarget = flightState.raceGuideTarget ? flightState.raceGuideTarget.clone() : null;
+    const isRaceGuide = !!raceTarget;
+
     const target = this.landingTarget ?? this.previewTarget ?? this.world?.runwayCenter?.clone?.() ?? null;
     this.status.guidanceEnabled = true;
     this.status.autoLandEnabled = this.autoLandEnabled;
@@ -586,6 +591,7 @@ export class GuidanceSystem {
       this._setBeamHidden(this._leftWingBeam);
       this._setBeamHidden(this._rightWingBeam);
       this._setBeamHidden(this._targetBeam);
+      this._setBeamHidden(this._raceBeam);
       this._futurePathLine.visible = false;
       this._futurePathGlow.visible = false;
       this._targetRing.visible = false;
@@ -596,12 +602,31 @@ export class GuidanceSystem {
     this._right.set(1, 0, 0).applyQuaternion(flightState.quaternion).normalize();
     this._up.set(0, 1, 0).applyQuaternion(flightState.quaternion).normalize();
 
-    const touchdown = target.clone();
-    touchdown.y = this.world.getSurfaceHeight(touchdown.x, touchdown.z) + 0.4;
     const pulse = 1 + Math.sin(performance.now() * 0.006) * 0.08;
     const nose = this._tempA.copy(flightState.position)
       .addScaledVector(this._forward, flightState.frameRadius * 1.45 + 4.6)
       .addScaledVector(this._up, 0.9);
+
+    if (isRaceGuide) {
+      raceTarget.y = Math.max(raceTarget.y, this.world.getSurfaceHeight(raceTarget.x, raceTarget.z) + 18);
+      this._setBeamPoints(this._raceBeam, nose, raceTarget, pulse * 1.02);
+      this._setBeamHidden(this._approachBeam);
+      this._setBeamHidden(this._leftWingBeam);
+      this._setBeamHidden(this._rightWingBeam);
+      this._setBeamHidden(this._targetBeam);
+      this._targetRing.visible = true;
+      this._targetRing.position.copy(raceTarget).setY(raceTarget.y - 16);
+      this._targetRing.scale.setScalar(1.5 + Math.sin(performance.now() * 0.005) * 0.1);
+      this._futurePathLine.visible = false;
+      this._futurePathGlow.visible = false;
+      this.status.landingAdvice = flightState.raceDirectionHint ?? 'FOLLOW RACE GUIDE';
+      this.status.landingAdviceTone = 'info';
+      return;
+    }
+    this._setBeamHidden(this._raceBeam);
+
+    const touchdown = target.clone();
+    touchdown.y = this.world.getSurfaceHeight(touchdown.x, touchdown.z) + 0.4;
     this._setBeamPoints(this._approachBeam, nose, touchdown, pulse);
 
     const leftWing = this._tempB.copy(flightState.position)
