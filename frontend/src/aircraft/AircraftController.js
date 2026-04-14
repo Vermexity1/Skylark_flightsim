@@ -79,6 +79,10 @@ export class AircraftController {
     this._trickState = null;
     this.isCrashed = false;
     this.isLanded = false;
+    this._landingGear = null;
+    this._gearDeploy = 1;
+    this._gearTarget = 1;
+    this._gearManualOverride = false;
   }
 
   // ── Load / switch aircraft ──────────────────────────────────
@@ -110,6 +114,7 @@ export class AircraftController {
       activeMesh.position.copy(this.position);
       activeMesh.quaternion.copy(this.quaternion);
       this._updateCollisionBounds();
+      this._ensureLandingGear();
       this._refreshDamageVisuals();
     };
     this.scene.add(this.mesh);
@@ -136,16 +141,23 @@ export class AircraftController {
     this._trickState = null;
     this.isCrashed = false;
     this.isLanded = false;
+    this._gearManualOverride = false;
     this._syncMotionToForward(this.config.startSpeed, 1);
     this.mesh.position.copy(this.position);
     this.mesh.quaternion.copy(this.quaternion);
+    this._updateLandingGear(dt);
     this._updateCollisionBounds();
+    this._ensureLandingGear();
     this._refreshDamageVisuals();
   }
 
   // ── Per-frame update ─────────────────────────────────────────
   update(input, dt) {
     if (!this.mesh || !this.config) return;
+    const crashLocked = this.isCrashed;
+    const effectiveInput = crashLocked
+      ? { ...input, pitch: 0, roll: 0, yaw: 0, throttle: -1, boost: false, brake: true }
+      : input;
 
     this._prevVelocity.copy(this.velocity);
     this._impactCooldown = Math.max(0, this._impactCooldown - dt);
@@ -153,14 +165,14 @@ export class AircraftController {
 
     // ── Throttle ────────────────────────────────────────────
     this.throttle = THREE.MathUtils.clamp(
-      this.throttle + input.throttle * dt * 0.5, 0, 1
+      this.throttle + effectiveInput.throttle * dt * 0.5, 0, 1
     );
-    if (input.brake) {
+    if (effectiveInput.brake) {
       this.throttle = Math.max(0, this.throttle - dt * 3.4);
     }
 
     // ── Boost ────────────────────────────────────────────────
-    if (input.boost && this.boostFuel > 0 && this.boostCooldown <= 0) {
+    if (effectiveInput.boost && this.boostFuel > 0 && this.boostCooldown <= 0) {
       this.boostActive = true;
       this.boostFuel   = Math.max(0, this.boostFuel - BOOST.DRAIN_RATE * dt);
       if (this.boostFuel <= 0) this.boostCooldown = BOOST.RECHARGE_DELAY;
@@ -186,7 +198,7 @@ export class AircraftController {
     const pitchResponse = 1 - Math.exp(-dt * (2.8 + this.stats.agility * 0.72));
     const lateralResponse = 1 - Math.exp(-dt * (5.2 + this.stats.agility * 1.25));
     const trickInput = this._updateTrickState(dt);
-    const assistedInput = this._applyAssistInput(this._applyStunInput(input));
+    const assistedInput = this._applyAssistInput(this._applyStunInput(effectiveInput));
     const rawPitch = trickInput?.pitch ?? assistedInput.pitch;
     const rawRoll = trickInput?.roll ?? assistedInput.roll;
     const rawYaw = trickInput?.yaw ?? assistedInput.yaw;
@@ -218,7 +230,7 @@ export class AircraftController {
     this.quaternion.multiply(dq).normalize();
 
     // Inertia — gradually level wings when no roll input
-    if (Math.abs(input.roll) < 0.05 && !this.isStalling) {
+    if (Math.abs(effectiveInput.roll) < 0.05 && !this.isStalling) {
       const euler = new THREE.Euler().setFromQuaternion(this.quaternion, 'YXZ');
       euler.z *= Math.pow(0.97, dt * 60); // decay roll
       this.quaternion.setFromEuler(euler);
@@ -231,7 +243,7 @@ export class AircraftController {
         velocity: this.velocity,
         quaternion: this.quaternion,
         throttle: this.throttle * conditionFactor,
-        brake: !!input.brake,
+        brake: !!effectiveInput.brake,
       },
       this.config
     );
@@ -249,7 +261,7 @@ export class AircraftController {
     this._previousPosition.copy(this.position);
     this._previousCollisionCenter.copy(this._getCollisionCenter());
     this.velocity.addScaledVector(accel, dt);
-    this._alignVelocityToForward(dt, input);
+    this._alignVelocityToForward(dt, effectiveInput);
 
     // Speed cap
     const maxSpd = this.boostActive ? this.config.maxSpeed * 1.5 : this.config.maxSpeed;
@@ -355,15 +367,15 @@ export class AircraftController {
       this.isLanded &&
       this.nearGround &&
       this.throttle < 0.04 &&
-      !input.boost &&
-      Math.abs(input.throttle) < 0.05 &&
+      !effectiveInput.boost &&
+      Math.abs(effectiveInput.throttle) < 0.05 &&
       speed < Math.max(0.8, this.config.stallSpeed * 0.06)
     ) {
       this.position.y = groundLevel + this.collisionBottomOffset;
       this.velocity.set(0, 0, 0);
     }
 
-    if (input.brake && this.nearGround) {
+    if (effectiveInput.brake && this.nearGround) {
       const surfaceSpeed = Math.hypot(this.velocity.x, this.velocity.z);
       const brakingAccel = PHYSICS.GRAVITY * (this.isLanded ? 0.72 : 0.34) + Math.max(2, this.config.stallSpeed * 0.08);
       const nextSurfaceSpeed = Math.max(0, surfaceSpeed - brakingAccel * dt);
@@ -374,6 +386,21 @@ export class AircraftController {
       if (this.isLanded && this.throttle < 0.02 && nextSurfaceSpeed < Math.max(0.03, this.config.stallSpeed * 0.0015)) {
         this.velocity.set(0, 0, 0);
       }
+    }
+
+    const gearAltitude = Math.max(0, this.position.y - terrainH);
+    const forcedGearDown = this.isLanded || gearAltitude < 220 || speed < this.config.stallSpeed * 1.5;
+    if (forcedGearDown) {
+      this._gearTarget = 1;
+      if (this.isLanded) this._gearManualOverride = false;
+    } else if (!this._gearManualOverride) {
+      this._gearTarget = 0;
+    }
+    this._gearDeploy = THREE.MathUtils.lerp(this._gearDeploy, this._gearTarget, 1 - Math.exp(-dt * 3.6));
+    if (this._gearDeploy > 0.04) {
+      const dragRatio = THREE.MathUtils.clamp(speed / Math.max(this.config.maxSpeed, 1), 0, 1);
+      const gearDrag = Math.exp(-dt * this._gearDeploy * dragRatio * 0.42);
+      this.velocity.multiplyScalar(gearDrag);
     }
 
     // Altitude ceiling
@@ -459,6 +486,8 @@ export class AircraftController {
       stallSpeed:   this.config?.stallSpeed ?? 0,
       boostFuel:    this.boostFuel,
       boostActive:  this.boostActive,
+      gearDeployed: this._gearDeploy > 0.55,
+      gearProgress: this._gearDeploy,
       landed:       this.landed,
       nearGround:   this.nearGround,
       frameRadius:  Math.max(this.collisionHalfExtents.x, this.collisionHalfExtents.y, this.collisionHalfExtents.z),
@@ -497,6 +526,23 @@ export class AircraftController {
     this.isCrashed = false;
     this.isLanded = false;
     this._impactCooldown = 0;
+    this._gearDeploy = 1;
+    this._gearTarget = 1;
+    this._gearManualOverride = false;
+  }
+
+  toggleLandingGear() {
+    if (!this.config) return this._gearTarget > 0.5;
+    const terrainH = this.getTerrainHeight ? this.getTerrainHeight(this.position.x, this.position.z) : 0;
+    const gearAltitude = Math.max(0, this.position.y - terrainH);
+    if (this.isLanded || gearAltitude < 220) {
+      this._gearTarget = 1;
+      this._gearManualOverride = false;
+      return true;
+    }
+    this._gearManualOverride = true;
+    this._gearTarget = this._gearTarget > 0.5 ? 0 : 1;
+    return this._gearTarget > 0.5;
   }
 
   setFlightState({ position, quaternion, speed, throttle, preserveExactSpeed = false }) {
@@ -530,6 +576,8 @@ export class AircraftController {
     this._trickState = null;
     this.isCrashed = false;
     this.isLanded = targetSpeed <= 0.0001;
+    this._gearManualOverride = false;
+    this._gearTarget = this.isLanded ? 1 : this._gearTarget;
   }
 
   applyExternalFlightState({ position, quaternion, velocity, throttle, landed = false, landedLabel = 'smooth' }) {
@@ -553,6 +601,8 @@ export class AircraftController {
     this._trickState = null;
     this.isCrashed = false;
     this.isLanded = !!landed;
+    this._gearManualOverride = false;
+    this._gearTarget = landed ? 1 : this._gearTarget;
 
     if (landed) {
       if (this.landed !== landedLabel) {
@@ -696,6 +746,85 @@ export class AircraftController {
       boost: false,
       brake: false,
     };
+  }
+
+  _ensureLandingGear() {
+    if (!this.mesh) return;
+    this._updateCollisionBounds();
+    this._landingGear?.group?.removeFromParent?.();
+
+    const group = new THREE.Group();
+    group.name = 'generated-landing-gear';
+    const strutMaterial = new THREE.MeshStandardMaterial({
+      color: 0xd7dde5,
+      roughness: 0.48,
+      metalness: 0.68,
+    });
+    const wheelMaterial = new THREE.MeshStandardMaterial({
+      color: 0x1f2329,
+      roughness: 0.9,
+      metalness: 0.08,
+    });
+    const wheelRadius = THREE.MathUtils.clamp(this.collisionHalfExtents.y * 0.3, 0.18, 0.82);
+    const buildGear = (offsetX, offsetY, offsetZ, strutLength, lean = 0) => {
+      const pivot = new THREE.Group();
+      pivot.position.set(offsetX, offsetY, offsetZ);
+      const strut = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.07, 0.09, strutLength, 7),
+        strutMaterial
+      );
+      strut.position.y = -strutLength * 0.5;
+      const wheel = new THREE.Mesh(
+        new THREE.TorusGeometry(wheelRadius, wheelRadius * 0.32, 10, 18),
+        wheelMaterial
+      );
+      wheel.rotation.y = Math.PI / 2;
+      wheel.position.y = -strutLength;
+      pivot.userData.lean = lean;
+      pivot.add(strut, wheel);
+      group.add(pivot);
+      return pivot;
+    };
+
+    const halfX = Math.max(0.8, this.collisionHalfExtents.x * 0.84);
+    const halfZ = Math.max(1.2, this.collisionHalfExtents.z * 0.58);
+    const baseY = -Math.max(0.45, this.collisionHalfExtents.y * 0.12);
+    const mainLength = Math.max(0.95, this.collisionHalfExtents.y * 0.95);
+    const noseLength = Math.max(0.85, this.collisionHalfExtents.y * 0.84);
+
+    this._landingGear = {
+      group,
+      nose: buildGear(0, baseY, -halfZ, noseLength, 0),
+      left: buildGear(-halfX, baseY, halfZ * 0.28, mainLength, -1),
+      right: buildGear(halfX, baseY, halfZ * 0.28, mainLength, 1),
+    };
+    this.mesh.add(group);
+    this._updateLandingGear(0);
+  }
+
+  _updateLandingGear(dt = 0) {
+    if (!this._landingGear?.group) return;
+    const deploy = THREE.MathUtils.clamp(this._gearDeploy, 0, 1);
+    const fold = 1 - deploy;
+    const updatePivot = pivot => {
+      if (!pivot) return;
+      const lean = pivot.userData.lean ?? 0;
+      pivot.rotation.x = -fold * 1.18;
+      pivot.rotation.z = lean * 0.08 + fold * lean * 0.22;
+      pivot.position.y = THREE.MathUtils.lerp(-0.1, 0.62, fold);
+    };
+    updatePivot(this._landingGear.nose);
+    updatePivot(this._landingGear.left);
+    updatePivot(this._landingGear.right);
+    this._landingGear.group.visible = deploy > 0.03;
+    if (dt >= 0) {
+      this._landingGear.group.traverse(node => {
+        if (node.isMesh) {
+          node.castShadow = deploy > 0.08;
+          node.receiveShadow = true;
+        }
+      });
+    }
   }
 
   _updateCollisionBounds() {

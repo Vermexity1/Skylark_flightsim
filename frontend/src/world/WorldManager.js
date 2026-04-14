@@ -235,6 +235,132 @@ function makeSatelliteTexture(noise, env) {
   return texture;
 }
 
+function buildWorldMetadata(envKey) {
+  const commonWorld = {
+    worldName: 'Skylark World',
+    worldHalf: RENDER.TERRAIN_SIZE * 0.46,
+  };
+
+  const byEnv = {
+    mountains: {
+      nation: 'Aster Union',
+      country: 'North Virelia',
+      airports: [
+        { id: 'glacier-gateway', name: 'Glacier Gateway', x: 0, z: -200, radius: 1700, voiceLine: 'Glacier Gateway tower, mountain traffic active. Winds calm down the valley.' },
+        { id: 'ridgewatch-terminal', name: 'Ridgewatch Terminal', x: -10800, z: 7600, radius: 1200, heading: 0.36, runwayLength: 620, runwayWidth: 42, voiceLine: 'Ridgewatch Terminal advises a steep valley departure and snow bands over the northern ridge.' },
+        { id: 'cirque-basin-field', name: 'Cirque Basin Field', x: 8600, z: -7600, radius: 1200, special: 'alpine_outpost', voiceLine: 'Cirque Basin Field is open with basin winds and limited mountain parking.' },
+      ],
+      regions: [
+        { id: 'glacier-basin', locality: 'Glacier Basin', region: 'Frostmere Province', nation: 'Aster Union', x: -800, z: -1800, radius: 7200 },
+        { id: 'cirque-crown', locality: 'Cirque Crown', region: 'Silverwall Province', nation: 'Aster Union', x: 8200, z: -7600, radius: 4800 },
+        { id: 'ridgewatch', locality: 'Ridgewatch Range', region: 'Northwall Territory', nation: 'Aster Union', x: -10400, z: 7600, radius: 5200 },
+      ],
+      settlements: [
+        { name: 'Skyridge', region: 'Frostmere Province', nation: 'Aster Union', x: -2600, z: -3200, type: 'town' },
+        { name: 'Whiteglass', region: 'Silverwall Province', nation: 'Aster Union', x: 7200, z: -5200, type: 'district' },
+        { name: 'Pinewake', region: 'Northwall Territory', nation: 'Aster Union', x: -9400, z: 5600, type: 'town' },
+      ],
+    },
+    city: {
+      nation: 'Lunaris Republic',
+      country: 'Meridian Coast',
+      airports: [
+        { id: 'nimbus-gateway', name: 'Nimbus Gateway', x: 0, z: -200, radius: 1800, voiceLine: 'Nimbus Gateway tower, neon corridor arrivals on standby. Expect dense urban traffic.' },
+        { id: 'eastport-terminal', name: 'Eastport Terminal', x: 8800, z: -10600, radius: 1350, heading: 0.12, runwayLength: 760, runwayWidth: 46, voiceLine: 'Eastport Terminal advises fast departures over the harbor district.' },
+        { id: 'aurora-municipal', name: 'Aurora Municipal', x: -10400, z: 9200, radius: 1280, heading: -0.24, runwayLength: 680, runwayWidth: 44, voiceLine: 'Aurora Municipal reports rooftop lighting bright and river crosswinds light.' },
+      ],
+      regions: [
+        { id: 'glass-core', locality: 'Glasscore', region: 'Meridian District', nation: 'Lunaris Republic', x: 0, z: 0, radius: 7600 },
+        { id: 'eastport', locality: 'Eastport', region: 'Harbor Reach', nation: 'Lunaris Republic', x: 9800, z: -9600, radius: 5200 },
+        { id: 'aurora-heights', locality: 'Aurora Heights', region: 'Northern Ring', nation: 'Lunaris Republic', x: -9800, z: 9400, radius: 5200 },
+      ],
+      settlements: [
+        { name: 'Neon Quay', region: 'Meridian District', nation: 'Lunaris Republic', x: 2200, z: -2400, type: 'district' },
+        { name: 'Skymarket', region: 'Meridian District', nation: 'Lunaris Republic', x: -2600, z: 1800, type: 'district' },
+        { name: 'Eastport', region: 'Harbor Reach', nation: 'Lunaris Republic', x: 9200, z: -9200, type: 'city' },
+        { name: 'Aurora Heights', region: 'Northern Ring', nation: 'Lunaris Republic', x: -9600, z: 9000, type: 'city' },
+      ],
+    },
+    coastal: {
+      nation: 'Solmere Archipelago',
+      country: 'Outer Shoals',
+      airports: [
+        { id: 'bluewater-field', name: 'Bluewater Field', x: 0, z: -200, radius: 1900, voiceLine: 'Bluewater Field tower, island hops are active and surf visibility is clear.' },
+        { id: 'palm-reef-terminal', name: 'Palm Reef Terminal', x: 7600, z: -8400, radius: 1250, heading: 0.52, runwayLength: 620, runwayWidth: 38, voiceLine: 'Palm Reef Terminal advises lagoon departures and low island traffic.' },
+        { id: 'shoalpoint-strip', name: 'Shoalpoint Strip', x: -9400, z: 7200, radius: 1180, heading: -0.42, runwayLength: 560, runwayWidth: 34, voiceLine: 'Shoalpoint Strip is open with shallow-water glare on final.' },
+      ],
+      regions: [
+        { id: 'lagoon-belt', locality: 'Lagoon Belt', region: 'Outer Shoals', nation: 'Solmere Archipelago', x: 0, z: -1800, radius: 7600 },
+        { id: 'reef-south', locality: 'Reef South', region: 'Palm Reach', nation: 'Solmere Archipelago', x: 7400, z: -8200, radius: 4800 },
+        { id: 'north-shoals', locality: 'North Shoals', region: 'Shoal March', nation: 'Solmere Archipelago', x: -9000, z: 7200, radius: 4800 },
+      ],
+      settlements: [
+        { name: 'Harbor Cay', region: 'Outer Shoals', nation: 'Solmere Archipelago', x: 1800, z: -2800, type: 'town' },
+        { name: 'Palm Reef', region: 'Palm Reach', nation: 'Solmere Archipelago', x: 7400, z: -8200, type: 'island' },
+        { name: 'Shoalpoint', region: 'Shoal March', nation: 'Solmere Archipelago', x: -9200, z: 7000, type: 'island' },
+      ],
+    },
+    desert: {
+      nation: 'Sahra Dominion',
+      country: 'Red Basin',
+      airports: [
+        { id: 'sunline-airfield', name: 'Sunline Airfield', x: 0, z: -200, radius: 1700, voiceLine: 'Sunline Airfield tower, hot-and-high departures in effect with dune haze to the west.' },
+        { id: 'dunefall-terminal', name: 'Dunefall Terminal', x: 9200, z: 6200, radius: 1320, heading: 0.3, runwayLength: 740, runwayWidth: 44, voiceLine: 'Dunefall Terminal advises soft thermals and sparse oasis traffic.' },
+        { id: 'ember-oasis-strip', name: 'Ember Oasis Strip', x: -9600, z: -7600, radius: 1260, heading: -0.18, runwayLength: 640, runwayWidth: 40, voiceLine: 'Ember Oasis Strip is open. Pond approach lights are active.' },
+      ],
+      regions: [
+        { id: 'central-dunes', locality: 'Central Dunes', region: 'Red Basin', nation: 'Sahra Dominion', x: 0, z: -2400, radius: 7600 },
+        { id: 'dunefall', locality: 'Dunefall', region: 'Glass Sand Reach', nation: 'Sahra Dominion', x: 9200, z: 6200, radius: 5000 },
+        { id: 'ember-oasis', locality: 'Ember Oasis', region: 'Ashwater Vale', nation: 'Sahra Dominion', x: -9600, z: -7600, radius: 5000 },
+      ],
+      settlements: [
+        { name: 'Stonewake', region: 'Red Basin', nation: 'Sahra Dominion', x: -2000, z: -3200, type: 'outpost' },
+        { name: 'Dunefall', region: 'Glass Sand Reach', nation: 'Sahra Dominion', x: 9000, z: 6200, type: 'town' },
+        { name: 'Ember Oasis', region: 'Ashwater Vale', nation: 'Sahra Dominion', x: -9400, z: -7400, type: 'oasis' },
+      ],
+    },
+    canyon: {
+      nation: 'Vesper Territories',
+      country: 'Copper Reach',
+      airports: [
+        { id: 'mesa-gateway', name: 'Mesa Gateway', x: 0, z: -200, radius: 1700, voiceLine: 'Mesa Gateway tower, canyon winds are active and corridor traffic is heavy.' },
+        { id: 'vermilion-terminal', name: 'Vermilion Terminal', x: 8600, z: -7800, radius: 1200, heading: 0.22, runwayLength: 640, runwayWidth: 40, voiceLine: 'Vermilion Terminal advises a descending slot through the southern canyon.' },
+        { id: 'narrowgate-strip', name: 'Narrowgate Strip', x: -9400, z: 6200, radius: 1180, heading: -0.3, runwayLength: 560, runwayWidth: 36, voiceLine: 'Narrowgate Strip is open. Keep your wings level in the canyon slot.' },
+      ],
+      regions: [
+        { id: 'mesa-front', locality: 'Mesa Front', region: 'Copper Reach', nation: 'Vesper Territories', x: 0, z: -1800, radius: 7200 },
+        { id: 'vermilion-bend', locality: 'Vermilion Bend', region: 'South Canyon', nation: 'Vesper Territories', x: 8600, z: -7800, radius: 5000 },
+        { id: 'narrowgate', locality: 'Narrowgate', region: 'Splitstone Rim', nation: 'Vesper Territories', x: -9400, z: 6200, radius: 5000 },
+      ],
+      settlements: [
+        { name: 'Copper Hollow', region: 'Copper Reach', nation: 'Vesper Territories', x: 1400, z: -3400, type: 'district' },
+        { name: 'Vermilion Bend', region: 'South Canyon', nation: 'Vesper Territories', x: 8600, z: -7600, type: 'town' },
+        { name: 'Narrowgate', region: 'Splitstone Rim', nation: 'Vesper Territories', x: -9200, z: 6200, type: 'town' },
+      ],
+    },
+    air_race: {
+      nation: 'Aerial Circuit Authority',
+      country: 'Velocity Sector',
+      airports: [
+        { id: 'grid-pen', name: 'Grid Pen', x: 0, z: 2500, radius: 1100, special: 'race_start', voiceLine: 'Grid Pen control, race corridor is sealed and launch lanes are armed.' },
+      ],
+      regions: [
+        { id: 'launch-sector', locality: 'Launch Sector', region: 'Velocity Sector', nation: 'Aerial Circuit Authority', x: 0, z: 2500, radius: 1800 },
+        { id: 'east-bend', locality: 'East Bend', region: 'Velocity Sector', nation: 'Aerial Circuit Authority', x: 2100, z: -400, radius: 2600 },
+        { id: 'west-return', locality: 'West Return', region: 'Velocity Sector', nation: 'Aerial Circuit Authority', x: -2100, z: -400, radius: 2600 },
+      ],
+      settlements: [
+        { name: 'Launch Sector', region: 'Velocity Sector', nation: 'Aerial Circuit Authority', x: 0, z: 2500, type: 'district' },
+      ],
+    },
+  };
+
+  return {
+    ...commonWorld,
+    ...(byEnv[envKey] ?? byEnv.mountains),
+  };
+}
+
 export class WorldManager {
   constructor(scene, renderer = null) {
     this.scene = scene;
@@ -261,9 +387,11 @@ export class WorldManager {
     this.raceVenue = null;
     this.desertDetails = null;
     this.alpineOutpost = null;
+    this.airportGroups = [];
     this.landingPath = null;
     this.runwayCenter = new THREE.Vector3();
     this.runwayDirection = new THREE.Vector3(0, 0, -1);
+    this.mapMetadata = null;
     this.guidelineVisible = true;
     this._guideForward = new THREE.Vector3();
     this._guideUp = new THREE.Vector3(0, 1, 0);
@@ -305,6 +433,7 @@ export class WorldManager {
     this.surfaceZones = [];
     this.envConfig = ENVIRONMENTS[envKey];
     this.envKey = envKey;
+    this.mapMetadata = buildWorldMetadata(envKey);
     this._runwayBaseHeight = 0;
     if (!this.envConfig) return;
 
@@ -324,6 +453,7 @@ export class WorldManager {
     } else {
       this._createRunway();
       if (envKey === 'mountains') this._createAlpineOutpost();
+      this._createSupplementalAirports();
     }
 
     if (envKey === 'city') {
@@ -506,6 +636,65 @@ export class WorldManager {
       new THREE.Matrix4().lookAt(position, lookTarget, new THREE.Vector3(0, 1, 0))
     );
     return { position, quaternion, speed: 0, throttle: 0 };
+  }
+
+  getNavigationMapData() {
+    const metadata = this.mapMetadata ?? buildWorldMetadata(this.envKey ?? 'mountains');
+    return {
+      envKey: this.envKey,
+      envName: this.envConfig?.name ?? '',
+      worldName: metadata.worldName,
+      nation: metadata.nation,
+      country: metadata.country,
+      worldHalf: metadata.worldHalf,
+      airports: metadata.airports ?? [],
+      regions: metadata.regions ?? [],
+      settlements: metadata.settlements ?? [],
+    };
+  }
+
+  getNearestAirport(position) {
+    if (!position) return null;
+    const airports = this.mapMetadata?.airports ?? [];
+    let best = null;
+    airports.forEach(airport => {
+      const distance = Math.hypot(position.x - airport.x, position.z - airport.z);
+      if (!best || distance < best.distance) best = { ...airport, distance };
+    });
+    return best;
+  }
+
+  getLocationState(position) {
+    if (!position) return null;
+    const metadata = this.getNavigationMapData();
+    let nearestRegion = null;
+    let nearestSettlement = null;
+
+    (metadata.regions ?? []).forEach(region => {
+      const distance = Math.hypot(position.x - region.x, position.z - region.z);
+      if (!nearestRegion || distance < nearestRegion.distance) nearestRegion = { ...region, distance };
+    });
+    (metadata.settlements ?? []).forEach(settlement => {
+      const distance = Math.hypot(position.x - settlement.x, position.z - settlement.z);
+      if (!nearestSettlement || distance < nearestSettlement.distance) nearestSettlement = { ...settlement, distance };
+    });
+
+    const airport = this.getNearestAirport(position);
+    const region = nearestRegion?.distance <= (nearestRegion?.radius ?? 0) * 1.08 ? nearestRegion : nearestRegion;
+    const settlement = nearestSettlement?.distance <= 2600 ? nearestSettlement : null;
+    const locality = settlement?.name ?? region?.locality ?? metadata.envName;
+    const regionName = settlement?.region ?? region?.region ?? metadata.country;
+    const nationName = settlement?.nation ?? region?.nation ?? metadata.nation;
+
+    return {
+      locality,
+      region: regionName,
+      nation: nationName,
+      label: `${locality}, ${regionName}, ${nationName}`,
+      airport,
+      settlement,
+      districtId: settlement?.name ?? region?.id ?? metadata.envKey,
+    };
   }
 
   getRaceGuideTarget(position) {
@@ -896,8 +1085,9 @@ export class WorldManager {
     const towerX = 1 - THREE.MathUtils.smoothstep(Math.abs(x + 92), 18 + pad, 44 + pad);
     const towerZ = 1 - THREE.MathUtils.smoothstep(Math.abs(z - 32), 18 + pad, 42 + pad);
     const tower = towerX * towerZ;
+    const supplemental = this._getSupplementalAirportInfluence(x, z, pad);
 
-    return Math.max(mainStrip, apron * 0.94, taxi * 0.72, service * 0.68, terminal * 0.74, hangars * 0.7, tower * 0.66);
+    return Math.max(mainStrip, apron * 0.94, taxi * 0.72, service * 0.68, terminal * 0.74, hangars * 0.7, tower * 0.66, supplemental);
   }
 
   _getRunwaySafetyBlend(x, z, pad = 0) {
@@ -945,7 +1135,23 @@ export class WorldManager {
     const dx = x / 940;
     const dz = (z + 200) / 1480;
     const dist = Math.sqrt(dx * dx + dz * dz);
-    return 1 - THREE.MathUtils.smoothstep(dist, 0.22, 1.0);
+    const primary = 1 - THREE.MathUtils.smoothstep(dist, 0.22, 1.0);
+    return Math.max(primary, this._getSupplementalAirportInfluence(x, z, 120));
+  }
+
+  _getSupplementalAirportInfluence(x, z, pad = 0) {
+    if (!this.mapMetadata?.airports?.length) return 0;
+    let influence = 0;
+    this.mapMetadata.airports.forEach(airport => {
+      if (Math.abs(airport.x) < 1 && Math.abs(airport.z + 200) < 260) return;
+      const radius = (airport.radius ?? 1200) + pad;
+      const dx = x - airport.x;
+      const dz = z - airport.z;
+      const normalized = Math.hypot(dx, dz) / Math.max(radius, 1);
+      const localInfluence = 1 - THREE.MathUtils.smoothstep(normalized, 0.3, 1.0);
+      influence = Math.max(influence, localInfluence);
+    });
+    return influence;
   }
 
   _getRunwayBaseHeight() {
@@ -1975,6 +2181,161 @@ export class WorldManager {
     this.scene.add(group);
   }
 
+  _createSupplementalAirports() {
+    const airports = this.mapMetadata?.airports ?? [];
+    airports.forEach(airport => {
+      const isPrimary = Math.abs(airport.x) < 1 && Math.abs(airport.z + 200) < 260;
+      if (isPrimary || airport.special === 'alpine_outpost' || airport.special === 'race_start') return;
+      this._createRegionalAirport(airport);
+    });
+  }
+
+  _createRegionalAirport(spec) {
+    const width = spec.runwayWidth ?? 40;
+    const depth = spec.runwayLength ?? 620;
+    const heading = spec.heading ?? 0;
+    const centerX = spec.x;
+    const centerZ = spec.z;
+    const runwayCenterY = this.getSurfaceHeight(centerX, centerZ) + 0.18;
+    const forward = new THREE.Vector3(Math.sin(heading), 0, -Math.cos(heading)).normalize();
+    const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize().multiplyScalar(-1);
+
+    const group = new THREE.Group();
+    const asphaltMaterial = new THREE.MeshStandardMaterial({ color: 0x262a2f, roughness: 0.9, metalness: 0.02 });
+    const shoulderMaterial = new THREE.MeshStandardMaterial({ color: 0x7a735d, roughness: 0.98, metalness: 0.0 });
+    const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x343a41, roughness: 0.92, metalness: 0.04 });
+    const buildingMaterial = this._makeSolidBuildingMaterial('#788391');
+    const beaconMaterial = new THREE.MeshBasicMaterial({ color: 0x8de7ff });
+
+    const runway = this._createTerrainSurface({
+      width,
+      depth,
+      centerX,
+      centerZ,
+      segmentsX: 6,
+      segmentsZ: 72,
+      material: asphaltMaterial,
+      yOffset: 0.08,
+    });
+    group.add(runway);
+
+    const shoulder = this._createTerrainSurface({
+      width: width + 78,
+      depth: depth + 96,
+      centerX,
+      centerZ,
+      segmentsX: 12,
+      segmentsZ: 80,
+      material: shoulderMaterial,
+      yOffset: 0.03,
+    });
+    group.add(shoulder);
+
+    const taxi = this._createTerrainSurface({
+      width: 16,
+      depth: Math.max(180, depth * 0.42),
+      centerX: centerX + right.x * (width * 0.75 + 28),
+      centerZ: centerZ + right.z * (width * 0.75 + 28),
+      segmentsX: 2,
+      segmentsZ: 24,
+      material: roadMaterial.clone(),
+      yOffset: 0.07,
+    });
+    group.add(taxi);
+
+    const apron = this._createTerrainSurface({
+      width: 84,
+      depth: 62,
+      centerX: centerX + right.x * (width * 0.75 + 74) - forward.x * 28,
+      centerZ: centerZ + right.z * (width * 0.75 + 74) - forward.z * 28,
+      segmentsX: 8,
+      segmentsZ: 8,
+      material: roadMaterial.clone(),
+      yOffset: 0.065,
+    });
+    group.add(apron);
+
+    const terminalPos = new THREE.Vector3(
+      centerX + right.x * (width * 0.75 + 92) - forward.x * 12,
+      0,
+      centerZ + right.z * (width * 0.75 + 92) - forward.z * 12
+    );
+    const terminalFootprint = this._sampleFootprintStats(terminalPos.x, terminalPos.z, 22, 10);
+    const terminal = new THREE.Mesh(new THREE.BoxGeometry(42, 11, 22), buildingMaterial.clone());
+    terminal.position.set(terminalPos.x, terminalFootprint.max + 5.6, terminalPos.z);
+    terminal.rotation.y = heading;
+    terminal.castShadow = true;
+    terminal.receiveShadow = true;
+    group.add(terminal);
+    this.obstacles.push({
+      center: terminal.position.clone(),
+      hx: 21,
+      hy: 5.6,
+      hz: 11,
+      rotY: heading,
+      alwaysCollide: true,
+    });
+
+    const towerPos = new THREE.Vector3(
+      terminalPos.x + right.x * 18 + forward.x * 24,
+      0,
+      terminalPos.z + right.z * 18 + forward.z * 24
+    );
+    const towerFootprint = this._sampleFootprintStats(towerPos.x, towerPos.z, 8, 8);
+    const towerBase = new THREE.Mesh(new THREE.BoxGeometry(12, 24, 12), buildingMaterial.clone());
+    towerBase.position.set(towerPos.x, towerFootprint.max + 12.0, towerPos.z);
+    towerBase.castShadow = true;
+    towerBase.receiveShadow = true;
+    group.add(towerBase);
+    this.obstacles.push({
+      center: towerBase.position.clone(),
+      hx: 6,
+      hy: 12,
+      hz: 6,
+      alwaysCollide: true,
+    });
+
+    for (let marker = -depth * 0.46; marker <= depth * 0.46; marker += 42) {
+      [-width * 0.42, width * 0.42].forEach(offset => {
+        const light = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 8), beaconMaterial);
+        light.position.set(
+          centerX + right.x * offset + forward.x * marker,
+          this.getSurfaceHeight(centerX + right.x * offset + forward.x * marker, centerZ + right.z * offset + forward.z * marker) + 0.7,
+          centerZ + right.z * offset + forward.z * marker
+        );
+        group.add(light);
+      });
+    }
+
+    Promise.all([
+      this.assets.loadTextureSet(ASSET_SOURCES.terrain.runway, 32),
+      this.assets.loadTextureSet(ASSET_SOURCES.terrain.cityRoad, 18),
+      this.assets.loadTextureSet(ASSET_SOURCES.terrain.dirt, 26),
+    ]).then(([runwaySet, roadSet, dirtSet]) => {
+      [runway].forEach(surface => {
+        surface.material.map = runwaySet.color;
+        surface.material.normalMap = runwaySet.normal;
+        surface.material.roughnessMap = runwaySet.roughness;
+        surface.material.needsUpdate = true;
+      });
+      [taxi, apron].forEach(surface => {
+        surface.material.map = roadSet.color;
+        surface.material.normalMap = roadSet.normal;
+        surface.material.roughnessMap = roadSet.roughness;
+        surface.material.needsUpdate = true;
+      });
+      [shoulder].forEach(surface => {
+        surface.material.map = dirtSet.color;
+        surface.material.normalMap = dirtSet.normal;
+        surface.material.roughnessMap = dirtSet.roughness;
+        surface.material.needsUpdate = true;
+      });
+    });
+
+    this.airportGroups.push(group);
+    this.scene.add(group);
+  }
+
   _createRaceVenue() {
     const group = new THREE.Group();
     const course = CHALLENGE.COURSES.air_race;
@@ -2863,6 +3224,8 @@ export class WorldManager {
     dispose(this.raceVenue); this.raceVenue = null;
     dispose(this.desertDetails); this.desertDetails = null;
     dispose(this.alpineOutpost); this.alpineOutpost = null;
+    this.airportGroups.forEach(group => dispose(group));
+    this.airportGroups = [];
     dispose(this.landingPath); this.landingPath = null;
 
     [this.sun, this.sunGlow, this.sunTarget, this.hemisphereLight, this.ambientLight].forEach(light => {
@@ -2886,6 +3249,7 @@ export class WorldManager {
     this.obstacles = [];
     this._clearRings();
     this._heightCache.clear();
+    this.mapMetadata = null;
   }
 
   _clearRings() {

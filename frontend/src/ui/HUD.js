@@ -63,6 +63,7 @@ export class HUD {
         .hud-meter-track::after{content:'';position:absolute;inset:0;border-radius:999px;border:1px solid rgba(255,255,255,.05)}
         .hud-meter-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,rgba(132,216,255,.28),rgba(132,216,255,.95));box-shadow:0 0 16px rgba(132,216,255,.18);transform-origin:left center}
         #hud-advice{position:absolute;left:50%;top:82px;transform:translateX(-50%);padding:0;font-size:10px;letter-spacing:2px;text-transform:uppercase;display:none;max-width:min(20vw,220px);text-align:center}
+        #hud-location{position:absolute;left:50%;top:116px;transform:translateX(-50%);display:none;font:11px 'JetBrains Mono',monospace;letter-spacing:2px;color:rgba(238,247,255,.92);text-transform:uppercase;text-align:center;padding:8px 16px;border-radius:999px;background:rgba(7,16,28,.32);backdrop-filter:blur(10px)}
         #hud-alert{position:absolute;left:50%;top:20%;transform:translate(-50%,-50%);text-align:center;min-width:220px}
         #hud-crosshair{position:absolute;left:50%;top:50%;width:24px;height:24px;margin-left:-12px;margin-top:-12px;border:1px solid rgba(143,214,255,.8);border-radius:50%;display:none;box-shadow:0 0 18px rgba(127,214,255,.18)}
         #hud-crosshair::before,#hud-crosshair::after{content:'';position:absolute;left:50%;top:50%;background:rgba(222,244,255,.86)}
@@ -91,6 +92,7 @@ export class HUD {
           <div id="hud-guidance" class="hud-chip">Laser On</div>
           <div id="hud-assist" class="hud-chip">Assist Off</div>
           <div id="hud-autoland" class="hud-chip">Manual</div>
+          <div id="hud-gear" class="hud-chip">Gear Down</div>
           <div id="hud-camera" class="hud-chip">Follow</div>
           <div id="hud-gun" class="hud-chip" style="display:none">Gun</div>
           <div id="hud-ammo" class="hud-chip" style="display:none">Ammo</div>
@@ -126,6 +128,7 @@ export class HUD {
           ${this._meter('G Force','hud-g')}
         </div>
         <div id="hud-advice" class="hud-glass"></div>
+        <div id="hud-location"></div>
         <div id="hud-alert"></div>
         <div id="hud-crosshair"></div>
         <div id="hud-mouse" class="hud-glass">Mouse Steer</div>
@@ -156,6 +159,7 @@ export class HUD {
       guidance: q('hud-guidance'),
       assist: q('hud-assist'),
       autoland: q('hud-autoland'),
+      gear: q('hud-gear'),
       camera: q('hud-camera'),
       gun: q('hud-gun'),
       ammo: q('hud-ammo'),
@@ -177,6 +181,7 @@ export class HUD {
       g: q('hud-g-fill'),
       gValue: q('hud-g-val'),
       advice: q('hud-advice'),
+      location: q('hud-location'),
       alert: q('hud-alert'),
       crosshair: q('hud-crosshair'),
       mouse: q('hud-mouse'),
@@ -225,6 +230,7 @@ export class HUD {
           ${row('Arrow Keys','Move gun cursor')}
           ${row('Space / R','Fire / reload')}
           ${row('V','Switch gun mode')}
+          ${row('K','Toggle landing gear')}
           ${row('F','Boost')}
           ${row('B','Air brake')}
           ${row('T','Random trick')}
@@ -243,10 +249,8 @@ export class HUD {
 
   update(state) {
     if (!state || !this._visible) return;
-    if (this._advancedMode) {
-      this._minimap?.update(state);
-      this._attitude?.update(state);
-    }
+    if (window.innerWidth >= 1240 && window.innerHeight >= 720) this._minimap?.update(state);
+    if ((this._advancedMode || (window.innerWidth >= 1380 && window.innerHeight >= 820))) this._attitude?.update(state);
     const el = this._el;
     const kts = state.speed * 1.944;
     const ft = state.altitude * 3.281;
@@ -277,6 +281,8 @@ export class HUD {
     el.assist.style.color = state.assistEnabled ? '#84ffd4' : '#eef7ff';
     el.autoland.textContent = state.autoLandAllowed === false ? 'Auto Locked' : state.autoLandEnabled ? 'Autoland' : 'Manual';
     el.autoland.style.color = state.autoLandAllowed === false ? '#ffd470' : state.autoLandEnabled ? '#84ffd4' : '#eef7ff';
+    el.gear.textContent = state.gearDeployed ? 'Gear Down' : 'Gear Up';
+    el.gear.style.color = state.gearDeployed ? '#ffd470' : '#eef7ff';
     el.camera.textContent = cameraLabels[state.cameraMode] ?? 'Follow';
 
     el.gun.style.display = state.gunAvailable ? 'block' : 'none';
@@ -327,6 +333,13 @@ export class HUD {
       el.advice.style.color = state.landingAdviceTone === 'warn' ? '#ffd470' : state.landingAdviceTone === 'ok' ? '#84ffd4' : '#eef7ff';
     } else {
       el.advice.style.display = 'none';
+    }
+
+    if (state.locationBannerActive && state.locationBanner) {
+      el.location.style.display = 'block';
+      el.location.textContent = state.locationBanner;
+    } else {
+      el.location.style.display = 'none';
     }
 
     if (state.landed) {
@@ -433,8 +446,8 @@ export class HUD {
     this._advancedMode = !!enabled;
     this._el.advTop.style.display = this._advancedMode ? 'flex' : 'none';
     this._el.advBottom.style.display = this._advancedMode ? 'block' : 'none';
-    const showMinimap = this._advancedMode && window.innerWidth >= 1820 && window.innerHeight >= 980;
-    const showAttitude = this._advancedMode && window.innerWidth >= 1540 && window.innerHeight >= 900;
+    const showMinimap = window.innerWidth >= 1240 && window.innerHeight >= 720;
+    const showAttitude = this._advancedMode || (window.innerWidth >= 1380 && window.innerHeight >= 820);
     if (showMinimap) {
       this._minimap.show();
     } else {

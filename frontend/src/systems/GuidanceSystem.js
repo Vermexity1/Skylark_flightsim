@@ -103,6 +103,7 @@ export class GuidanceSystem {
     this._onClick = this._onClick.bind(this);
     this.canvas.addEventListener('mousemove', this._onMouseMove);
     this.canvas.addEventListener('click', this._onClick);
+    this._hideAllGuides();
   }
 
   _makeBeam(radius, color, coreOpacity, glowOpacity) {
@@ -156,6 +157,17 @@ export class GuidanceSystem {
     if (beam) beam.visible = false;
   }
 
+  _hideAllGuides() {
+    this._setBeamHidden(this._approachBeam);
+    this._setBeamHidden(this._leftWingBeam);
+    this._setBeamHidden(this._rightWingBeam);
+    this._setBeamHidden(this._targetBeam);
+    this._setBeamHidden(this._raceBeam);
+    this._futurePathLine.visible = false;
+    this._futurePathGlow.visible = false;
+    this._targetRing.visible = false;
+  }
+
   setEnabled(enabled) {
     this.enabled = !!enabled;
     this.group.visible = this.enabled;
@@ -163,6 +175,8 @@ export class GuidanceSystem {
     if (!this.enabled) {
       this.setAutoLandEnabled(false);
       this.awaitingTargetSelection = false;
+      this.previewTarget = null;
+      this._hideAllGuides();
     }
     return this.enabled;
   }
@@ -229,12 +243,14 @@ export class GuidanceSystem {
   }
 
   resetForEnvironment() {
-    this.previewTarget = this.world?.runwayCenter?.clone?.() ?? null;
+    this.previewTarget = null;
     this.landingTarget = null;
     this.autoLandEnabled = false;
     this.awaitingTargetSelection = false;
     this.autoStage = 'idle';
     this.autoPlan = null;
+    this.lastState = null;
+    this._hideAllGuides();
     this.status.landingTargetSelected = false;
     this.status.autoLandEnabled = false;
     this.status.awaitingLandingTarget = false;
@@ -581,21 +597,14 @@ export class GuidanceSystem {
     const raceTarget = flightState.raceGuideTarget ? flightState.raceGuideTarget.clone() : null;
     const isRaceGuide = !!raceTarget;
 
-    const target = this.landingTarget ?? this.previewTarget ?? this.world?.runwayCenter?.clone?.() ?? null;
+    const target = this.landingTarget ?? (this.awaitingTargetSelection ? this.previewTarget : null);
     this.status.guidanceEnabled = true;
     this.status.autoLandEnabled = this.autoLandEnabled;
     this.status.awaitingLandingTarget = this.awaitingTargetSelection;
     this.status.landingTargetSelected = !!this.landingTarget;
 
     if (!target) {
-      this._setBeamHidden(this._approachBeam);
-      this._setBeamHidden(this._leftWingBeam);
-      this._setBeamHidden(this._rightWingBeam);
-      this._setBeamHidden(this._targetBeam);
-      this._setBeamHidden(this._raceBeam);
-      this._futurePathLine.visible = false;
-      this._futurePathGlow.visible = false;
-      this._targetRing.visible = false;
+      this._hideAllGuides();
       return;
     }
 
@@ -817,7 +826,9 @@ export class GuidanceSystem {
   }
 
   _onMouseMove(event) {
-    this.previewTarget = this._pickTerrainPoint(event);
+    if (this.awaitingTargetSelection) {
+      this.previewTarget = this._pickTerrainPoint(event);
+    }
   }
 
   _onClick(event) {

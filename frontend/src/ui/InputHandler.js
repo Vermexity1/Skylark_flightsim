@@ -28,6 +28,7 @@ export class InputHandler {
     this.onAssistToggle = null;
     this.onReload       = null;
     this.onAimModeToggle = null;
+    this.onLandingGearToggle = null;
     this.onPause        = null;
     this.onHelpToggle   = null;
     this.onMouseToggle  = null;
@@ -39,6 +40,7 @@ export class InputHandler {
     this._assistPressed = false;
     this._reloadPressed = false;
     this._aimModePressed = false;
+    this._landingGearPressed = false;
     this._pausePressed  = false;
     this._helpPressed   = false;
     this._mousePressed  = false;
@@ -88,6 +90,10 @@ export class InputHandler {
       this._aimModePressed = true;
       this.onAimModeToggle?.();
     }
+    if (keyboard.landingGearToggle?.includes(e.code) && !this._landingGearPressed) {
+      this._landingGearPressed = true;
+      this.onLandingGearToggle?.();
+    }
     if (keyboard.pause.includes(e.code) && !this._pausePressed) {
       this._pausePressed = true;
       this.onPause?.();
@@ -115,6 +121,7 @@ export class InputHandler {
     if (keyboard.assistToggle?.includes(e.code)) this._assistPressed = false;
     if (keyboard.reload?.includes(e.code)) this._reloadPressed = false;
     if (keyboard.aimModeToggle?.includes(e.code)) this._aimModePressed = false;
+    if (keyboard.landingGearToggle?.includes(e.code)) this._landingGearPressed = false;
     if (keyboard.pause.includes(e.code))        this._pausePressed = false;
     if (keyboard.helpToggle.includes(e.code))   this._helpPressed  = false;
     if (keyboard.mouseToggle.includes(e.code))  this._mousePressed = false;

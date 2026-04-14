@@ -422,6 +422,7 @@ export const CONTROLS = {
     shoot:        ['Space'],
     reload:       ['KeyR'],
     aimModeToggle:['KeyV'],
+    landingGearToggle: ['KeyK'],
     trick:        ['KeyT'],
     assistToggle: ['KeyL'],
     helpToggle:   ['KeyH'],

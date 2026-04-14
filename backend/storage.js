@@ -104,10 +104,42 @@ async function createScore(entry) {
   const db = await getMongoDb();
   if (db) {
     await db.collection('scores').insertOne({ _id: entry.id, ...entry });
+    const playerKey = entry.playerId || entry.player_id || entry.player_name;
+    if (playerKey) {
+      const docs = await db.collection('scores')
+        .find({
+          $or: [
+            { playerId: playerKey },
+            { player_id: playerKey },
+            { player_name: playerKey },
+          ],
+        })
+        .sort({ score: -1, timestamp: 1 })
+        .toArray();
+      const overflow = docs.slice(3).map(doc => doc._id);
+      if (overflow.length) {
+        await db.collection('scores').deleteMany({ _id: { $in: overflow } });
+      }
+    }
     return entry;
   }
   const scores = readJson(DATA_FILE, []);
   scores.push(entry);
+  const playerKey = entry.playerId || entry.player_id || entry.player_name;
+  if (playerKey) {
+    const keep = [];
+    const grouped = scores
+      .filter(score => (score.playerId || score.player_id || score.player_name) === playerKey)
+      .sort((a, b) => (b.score - a.score) || String(a.timestamp).localeCompare(String(b.timestamp)))
+      .slice(0, 3)
+      .map(score => score.id);
+    scores.forEach(score => {
+      const key = score.playerId || score.player_id || score.player_name;
+      if (key !== playerKey || grouped.includes(score.id)) keep.push(score);
+    });
+    writeJson(DATA_FILE, keep);
+    return entry;
+  }
   writeJson(DATA_FILE, scores);
   return entry;
 }

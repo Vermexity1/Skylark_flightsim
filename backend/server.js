@@ -212,7 +212,7 @@ app.get('/api/leaderboard', async (req, res) => {
 });
 
 app.post('/api/submit-score', async (req, res) => {
-  const { player_name, aircraft_type, game_mode, environment, score } = req.body;
+  const { player_name, aircraft_type, game_mode, environment, score, player_id } = req.body;
 
   if (!player_name || !aircraft_type || !game_mode || !environment || score === undefined) {
     return res.status(400).json({
@@ -227,6 +227,7 @@ app.post('/api/submit-score', async (req, res) => {
   const entry = {
     id: uuidv4(),
     player_name: String(player_name).trim(),
+    player_id: player_id ? String(player_id).trim() : '',
     aircraft_type: String(aircraft_type).trim(),
     game_mode: String(game_mode).trim(),
     environment: String(environment).trim(),

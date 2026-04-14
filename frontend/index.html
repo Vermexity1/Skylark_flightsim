@@ -442,6 +442,55 @@
 </div>
 
 <!-- ════════════════════════════════════ MAIN MENU ════════════════════════════ -->
+<div id="screen-onboarding" class="screen" style="z-index:23; display:none;">
+  <div style="position:relative; z-index:1; width:min(94vw,1120px); max-height:min(92vh,920px); overflow:auto; padding:20px;">
+    <div class="card" style="padding:28px; border-radius:28px; background:linear-gradient(180deg, rgba(6,18,34,0.94), rgba(5,12,24,0.9)); border:1px solid rgba(98,200,255,0.18);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:18px; flex-wrap:wrap; margin-bottom:22px;">
+        <div>
+          <div style="font-size:10px; letter-spacing:4px; color:#7ee6ff; font-family:'JetBrains Mono',monospace; margin-bottom:12px;">FLIGHT SCHOOL</div>
+          <h2 style="margin:0; font-size:clamp(30px,5vw,48px); line-height:1.04; font-weight:800; background:linear-gradient(135deg,#f4fbff 18%,#84dfff 60%,#71ffd8 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">Pilot Welcome Briefing</h2>
+          <div id="onboarding-intro" style="margin-top:12px; max-width:54ch; font-size:13px; line-height:1.7; color:#9fc7e7;"></div>
+        </div>
+        <div class="card" style="padding:14px 16px; min-width:240px; background:rgba(9,24,44,0.72); border-color:rgba(98,200,255,0.16);">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:10px;">FLIGHT SCHOOL STEPS</div>
+          <div style="display:flex; flex-direction:column; gap:8px; font-size:12px; color:#dff4ff; line-height:1.6;">
+            <div>1. Review and confirm your keybinds.</div>
+            <div>2. Learn the HUD, throttle, lift, and landing cues.</div>
+            <div>3. Fly a guided training route with tight gates, climbs, and descents.</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:16px;">
+        <div class="card" style="padding:18px; background:rgba(9,24,44,0.66); border-color:rgba(98,200,255,0.14);">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:12px;">STEP 1 | KEYBINDS</div>
+          <div id="onboarding-controls-hint" style="font-size:11px; color:#9fc7e7; margin-bottom:12px; line-height:1.6;">Click a binding and press a key to customize your layout before the tutorial.</div>
+          <div id="onboarding-controls-list" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:8px;"></div>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          <div class="card" style="padding:18px; background:rgba(9,24,44,0.66); border-color:rgba(98,200,255,0.14);">
+            <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:12px;">STEP 2 | BRIEFING</div>
+            <div style="display:flex; flex-direction:column; gap:10px; font-size:12px; color:#dff4ff; line-height:1.7;">
+              <div>Use throttle to build speed, then rotate gently and hold the wings level with the attitude indicator.</div>
+              <div>The expandable world map shows airports, districts, and fictional nations. Click the circular map in flight to open the larger chart.</div>
+              <div>Airport voice lines, location banners, and landing cues are designed to feel like a real simulator training flow without copying branded presentation.</div>
+            </div>
+          </div>
+          <div class="card" style="padding:18px; background:rgba(9,24,44,0.66); border-color:rgba(98,200,255,0.14);">
+            <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:12px;">STEP 3 | TRAINING CHALLENGE</div>
+            <div style="font-size:12px; color:#dff4ff; line-height:1.7;">
+              Flight School launches you in a guided training aircraft on a challenge route with narrow gaps, altitude changes, and checkpoint rhythm. The HUD help overlay opens automatically before takeoff so you can read the controls first.
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
+              <button class="btn btn-primary" onclick="App.startFlightSchool()" style="padding:12px 16px; font-size:12px;">Start Flight School</button>
+              <button class="btn btn-ghost" onclick="App.finishOnboarding(true)" style="padding:12px 16px; font-size:12px;">Skip To Menu</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="screen-menu" class="screen" style="z-index:22;">
   <div id="menu-hero" style="position:relative; z-index:1; text-align:center; max-width:760px; width:min(92vw,760px); padding:46px 42px; border-radius:28px; border:1px solid rgba(98,200,255,0.18); background:linear-gradient(180deg, rgba(10,20,38,0.82), rgba(6,14,28,0.74)); box-shadow:0 24px 90px rgba(0,8,22,0.42);">
 
@@ -556,11 +605,12 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       <button class="btn btn-ghost" onclick="App.loadLeaderboard('challenge')" style="padding:8px 14px; font-size:11px;">Challenge</button>
       <button class="btn btn-ghost" onclick="App.loadLeaderboard('race_online_ranked')" style="padding:8px 14px; font-size:11px;">Legend Race</button>
     </div>
+    <div style="margin-bottom:10px; text-align:center; font-size:11px; color:#8db8dd;">Every submission is accepted, but only each pilot&apos;s top 3 scores are retained for leaderboard storage.</div>
     <div class="card" style="overflow:hidden;">
       <div class="lb-row header" style="font-family:'JetBrains Mono',monospace;">
         <span>#</span><span>PLAYER</span><span>AIRCRAFT</span><span>MODE</span><span style="text-align:right;">SCORE</span>
       </div>
-      <div id="lb-body" style="min-height:200px; font-size:13px; font-family:'JetBrains Mono',monospace;">
+      <div id="lb-body" style="min-height:200px; max-height:min(60vh,520px); overflow:auto; font-size:13px; font-family:'JetBrains Mono',monospace;">
         <div style="padding:40px; text-align:center; color:#3a4a5a;">Loading...</div>
       </div>
     </div>
@@ -970,6 +1020,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       totalLandings: 0,
       totalRaceStarts: 0,
       totalChallengeStarts: 0,
+      onboardingCompleted: false,
+      onboardingSeenAt: null,
+      tutorialActive: false,
+      tutorialCompleted: false,
     };
   }
   function normalizeActivityState(next = null) {
@@ -1020,6 +1074,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     { id: 'shoot', label: 'Fire Gun' },
     { id: 'reload', label: 'Reload Gun' },
     { id: 'aimModeToggle', label: 'Gun Aim Mode' },
+    { id: 'landingGearToggle', label: 'Landing Gear' },
     { id: 'trick', label: 'Random Trick' },
     { id: 'assistToggle', label: 'Stability Assist' },
     { id: 'brake', label: 'Brake' },
@@ -1564,6 +1619,19 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         </button>
       </div>
     `).join('');
+  }
+
+  function needsOnboarding() {
+    return !!authState?.token && !activityState.onboardingCompleted;
+  }
+
+  function renderOnboardingScreen() {
+    const intro = document.getElementById('onboarding-intro');
+    if (intro) {
+      const pilot = authState?.user?.username ? `Pilot ${authState.user.username}` : 'Pilot';
+      intro.textContent = `${pilot}, your account is ready. Before we drop you into the wider simulator, we will tune your keybinds, explain the HUD and flight loop, and send you through a short training route so your first takeoff feels intentional instead of overwhelming.`;
+    }
+    renderControlsPanel('onboarding-controls-list', 'onboarding-controls-hint');
   }
 
   function loadAppSettings() {
@@ -2330,10 +2398,26 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         this.showAuth();
         return;
       }
+      if (needsOnboarding()) {
+        this.showOnboarding();
+        return;
+      }
       hideAll();
       document.getElementById('screen-menu').style.display  = 'flex';
       document.getElementById('stars-canvas').style.display = 'block';
       renderAuthState();
+      hideSplash();
+    },
+
+    showOnboarding() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      hideAll();
+      document.getElementById('screen-onboarding').style.display = 'flex';
+      document.getElementById('stars-canvas').style.display = 'block';
+      renderOnboardingScreen();
       hideSplash();
     },
 
@@ -2415,7 +2499,8 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         saveAuthState();
         if (data?.profile) applyRemoteProfile(data.profile);
         await loadAdminUsers(false);
-        this.showMenu();
+        if (needsOnboarding()) this.showOnboarding();
+        else this.showMenu();
         renderAuthState();
         return true;
       } catch (error) {
@@ -2444,7 +2529,8 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         applySignedInSession(data);
         await syncProfileNow(false);
         await loadAdminUsers(false);
-        this.showMenu();
+        if (needsOnboarding()) this.showOnboarding();
+        else this.showMenu();
         toast(`Signed in as ${data.user.username}`, 1800);
       } catch (error) {
         toast(error.message || 'Cannot sign in', 2200);
@@ -2468,7 +2554,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         applySignedInSession(data);
         await syncProfileNow(false);
         await loadAdminUsers(false);
-        this.showMenu();
+        this.showOnboarding();
         toast(`Account ready for ${data.user.username}`, 1800);
       } catch (error) {
         toast(error.message || 'Cannot create account', 2200);
@@ -2492,6 +2578,36 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       adminConsole = { loading: false, error: '', users: [] };
       this.showAuth();
       toast('Signed out', 1600);
+    },
+
+    finishOnboarding(skipTutorial = false) {
+      activityState = {
+        ...activityState,
+        onboardingCompleted: true,
+        onboardingSeenAt: new Date().toISOString(),
+        tutorialActive: skipTutorial ? false : activityState.tutorialActive,
+      };
+      queueProfileSync();
+      if (skipTutorial) {
+        this.showMenu();
+        toast('Flight school skipped. You can still train from the mission menu.', 2200);
+      }
+    },
+
+    async startFlightSchool() {
+      this.finishOnboarding(false);
+      activityState = {
+        ...activityState,
+        tutorialActive: true,
+      };
+      sel.aircraft = 'prop';
+      sel.env = 'air_race';
+      sel.mode = 'challenge';
+      sel.practiceRankIndex = 0;
+      appSettings.guidanceEnabled = true;
+      saveAppSettings();
+      toast('Flight school launching', 1500);
+      await this.launchGame();
     },
 
     async syncProfile(showToast = false) {
@@ -2884,10 +3000,16 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           hud?.update(state);
           toast(`Gun Aim: ${mode.toUpperCase()}`, 1400);
         },
+        onLandingGearChange: deployed => {
+          state = { ...(state ?? {}), gearDeployed: deployed };
+          hud?.update(state);
+          toast(deployed ? 'Landing gear deployed' : 'Landing gear retracted', 1500);
+        },
         onDevPathChange: devState => {
           state = { ...(state ?? {}), ...(devState ?? {}) };
           syncFlightToolbar(state);
         },
+        onCrashResetSuggested: () => toast('Reset Aircraft available', 1800),
         onMouseToggle: on => toast(on ? '🖱 Mouse Steer ON' : '🖱 Mouse Steer OFF'),
         onChallengeComplete: result => this.showChallengeDone(result),
         onRaceComplete: result => this.showRaceDone(result),
@@ -2933,6 +3055,15 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       engine.start();
       setSplashProgress(1, 'Ready for takeoff');
       hideSplash(splashRun, 320);
+      if (activityState.tutorialActive) {
+        window.setTimeout(() => {
+          if (!hud?.isHelpVisible?.()) {
+            hud?.toggleHelp?.();
+            engine?.pause();
+          }
+          toast('Flight school loaded. Close the help overlay to begin.', 3200);
+        }, 260);
+      }
     },
 
     showPause() {
@@ -3098,6 +3229,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             player_name:   name,
+            player_id:     authState?.user?.id ?? '',
             aircraft_type: sel.aircraft,
             game_mode:     sel.mode,
             environment:   sel.env,
@@ -3120,11 +3252,23 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     },
 
     showChallengeDone(result) {
-      document.getElementById('result-title').textContent = 'CHALLENGE COMPLETE';
+      const tutorialRun = activityState.tutorialActive;
+      if (tutorialRun) {
+        activityState = {
+          ...activityState,
+          tutorialActive: false,
+          tutorialCompleted: true,
+          onboardingCompleted: true,
+          onboardingSeenAt: activityState.onboardingSeenAt ?? new Date().toISOString(),
+        };
+      }
+      document.getElementById('result-title').textContent = tutorialRun ? 'FLIGHT SCHOOL COMPLETE' : 'CHALLENGE COMPLETE';
       const mins = Math.floor(result.time / 60);
       const secs = (result.time % 60).toFixed(2);
       document.getElementById('cd-time').textContent  = `${mins}:${secs.padStart(5,'0')}`;
-      document.getElementById('cd-score').textContent = `Score: ${result.score.toLocaleString()} · +$${result?.careerResult?.moneyDelta ?? 0}`;
+      document.getElementById('cd-score').textContent = tutorialRun
+        ? `Training score ${result.score.toLocaleString()} | +$${result?.careerResult?.moneyDelta ?? 0}`
+        : `Score: ${result.score.toLocaleString()} | +$${result?.careerResult?.moneyDelta ?? 0}`;
       document.getElementById('challenge-done').style.display = 'flex';
       renderCareerScreen();
       renderHangar();
@@ -3322,6 +3466,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       pendingControlBinding = actionId;
       renderControlsPanel();
       renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+      renderControlsPanel('onboarding-controls-list', 'onboarding-controls-hint');
     },
 
     resetControls() {
@@ -3330,12 +3475,17 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       pendingControlBinding = null;
       renderControlsPanel();
       renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+      renderControlsPanel('onboarding-controls-list', 'onboarding-controls-hint');
       queueProfileSync();
       toast('Controls reset', 1500);
     },
 
     exitToMenu() {
       pendingControlBinding = null;
+      activityState = {
+        ...activityState,
+        tutorialActive: false,
+      };
       syncProfileNow(false);
       if (engine) { engine.destroy(); engine = null; }
       if (hud)    { hud.destroy();    hud    = null; }
@@ -3361,7 +3511,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           return;
         }
         const rankColors = ['#FFD700','#C0C0C0','#CD7F32'];
-        body.innerHTML = filtered.slice(0, 20).map((row, i) => `
+        body.innerHTML = filtered.slice(0, 60).map((row, i) => `
           <div class="lb-row" style="${i < 3 ? 'background:rgba(255,255,100,0.04)' : ''}">
             <span style="color:${rankColors[i] ?? '#6688aa'}; font-weight:${i<3?800:400};">${i+1}</span>
             <span style="color:#ccd6e8; overflow:hidden; text-overflow:ellipsis;">${escHtml(row.player_name)}</span>
@@ -3378,7 +3528,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
   // ── Helpers ──────────────────────────────────────────────
   function hideAll() {
-    ['screen-auth','screen-menu','screen-select','screen-leaderboard','screen-settings','screen-career','screen-hangar','screen-game'].forEach(id => {
+    ['screen-auth','screen-onboarding','screen-menu','screen-select','screen-leaderboard','screen-settings','screen-career','screen-hangar','screen-game'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
@@ -3501,7 +3651,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       devClearBtn.style.display = devVisible ? 'inline-flex' : 'none';
     }
     if (resetBtn) {
-      resetBtn.style.display = nextState?.landed === 'crash' ? 'inline-flex' : 'none';
+      resetBtn.style.display = (nextState?.landed === 'crash' || nextState?.resetRecommended) ? 'inline-flex' : 'none';
     }
   }
 
@@ -3521,6 +3671,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     if (menuSubtitle) {
       menuSubtitle.innerHTML = `Modern browser flight simulator.<br/>${Object.keys(AIRCRAFT).length} aircraft | ${Object.keys(ENVIRONMENTS).length} environments | Full physics.`;
     }
+    document.getElementById('menu-new-mission')?.replaceChildren(document.createTextNode('New Mission'));
+    document.getElementById('menu-leaderboard')?.replaceChildren(document.createTextNode('Leaderboard'));
+    document.getElementById('menu-settings')?.replaceChildren(document.createTextNode('Settings'));
+    document.getElementById('menu-career')?.replaceChildren(document.createTextNode('Career'));
 
     document.querySelectorAll('.btn').forEach(button => {
       button.addEventListener('click', () => {
@@ -3581,6 +3735,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         pendingControlBinding = null;
         renderControlsPanel();
         renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+        renderControlsPanel('onboarding-controls-list', 'onboarding-controls-hint');
         return;
       }
       if (engine?.setControlBinding) {
@@ -3594,6 +3749,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       pendingControlBinding = null;
       renderControlsPanel();
       renderControlsPanel('settings-controls-list', 'settings-controls-hint');
+      renderControlsPanel('onboarding-controls-list', 'onboarding-controls-hint');
       queueProfileSync();
       toast(`${actionName}: ${formatKeyLabel(event.code)}`, 1600);
     }, true);

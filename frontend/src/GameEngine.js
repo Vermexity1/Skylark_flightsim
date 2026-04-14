@@ -111,6 +111,13 @@ export class GameEngine {
       routeActive: false,
       raceAutoWin: false,
     };
+    this._locationTracker = {
+      districtId: '',
+      airportId: '',
+      label: '',
+      banner: '',
+      bannerTimer: 0,
+    };
 
     // ── Input callbacks ───────────────────────────────────────
     this.input.onCameraToggle = () => this.cycleCameraMode();
@@ -121,6 +128,7 @@ export class GameEngine {
       if (this.reloadGun()) callbacks.onReload?.();
     };
     this.input.onAimModeToggle = () => callbacks.onGunModeChange?.(this.toggleGunAimMode());
+    this.input.onLandingGearToggle = () => this.toggleLandingGear();
     this.input.onPause        = () => callbacks.onPause?.();
     this.input.onHelpToggle   = () => callbacks.onHelpToggle?.();
     this.input.onMouseToggle  = en => callbacks.onMouseToggle?.(en);
@@ -138,6 +146,13 @@ export class GameEngine {
     this.devTools.routeActive = false;
     this.devTools.raceAutoWin = false;
     this.devTools.routeIndex = 0;
+    this._locationTracker = {
+      districtId: '',
+      airportId: '',
+      label: '',
+      banner: '',
+      bannerTimer: 0,
+    };
     const activeEnvironment = isRaceMode(gameMode) ? RACE.TRACK_KEY : environment;
     this.world.loadEnvironment(activeEnvironment);
     this.world.setGuidelineVisible(false);
@@ -415,6 +430,30 @@ export class GameEngine {
       this.audio.speakATC?.('Track limits exceeded. Returning aircraft to the start grid.');
     }
 
+    const locationState = this.world.getLocationState?.(s.position) ?? null;
+    this._locationTracker.bannerTimer = Math.max(0, this._locationTracker.bannerTimer - dt);
+    if (locationState) {
+      if (locationState.districtId && locationState.districtId !== this._locationTracker.districtId) {
+        this._locationTracker.districtId = locationState.districtId;
+        this._locationTracker.label = locationState.label;
+        this._locationTracker.banner = locationState.label;
+        this._locationTracker.bannerTimer = 4.6;
+        if (!isRaceMode(this.gameMode)) {
+          this.audio.speakATC?.(`Now entering ${locationState.label}.`);
+        }
+      }
+      const airport = locationState.airport;
+      const airportInRange = airport && airport.distance < Math.max(860, (airport.radius ?? 1200) * 0.82);
+      if (airportInRange && airport.id !== this._locationTracker.airportId) {
+        this._locationTracker.airportId = airport.id;
+        if (!isRaceMode(this.gameMode) && airport.voiceLine) {
+          this.audio.speakATC?.(airport.voiceLine);
+        }
+      } else if (!airportInRange && airport?.distance > Math.max(1200, (airport.radius ?? 1200) * 1.18)) {
+        this._locationTracker.airportId = '';
+      }
+    }
+
     const guidanceState = {
       ...s,
       ...raceStatus,
@@ -438,6 +477,11 @@ export class GameEngine {
       ...this.guidance.getStatus(),
       ...this.guns.getStatus(),
       gunAvailable: this.guns.canFire(s.aircraftType, this.career.getEquippedGun()),
+      locationLabel: locationState?.label ?? this._locationTracker.label,
+      locationBanner: this._locationTracker.banner,
+      locationBannerActive: this._locationTracker.bannerTimer > 0,
+      mapData: this.world.getNavigationMapData?.() ?? null,
+      resetRecommended: s.landed === 'crash' || s.isCrashed === true,
       ...raceStatus,
       ...this.getDevAutoflyStatus(),
       ...this.replay.getStatus(),
@@ -663,6 +707,13 @@ export class GameEngine {
     return enabled;
   }
 
+  toggleLandingGear() {
+    const deployed = this.aircraft.toggleLandingGear?.();
+    if (this._state) this._state.gearDeployed = deployed;
+    this.callbacks.onLandingGearChange?.(deployed);
+    return deployed;
+  }
+
   repairAircraft(type) {
     const condition = this.damage.repair(type);
     if (this.aircraft.aircraftType === type) this.aircraft.repair();
@@ -860,6 +911,7 @@ export class GameEngine {
       }
       if (event.kind === 'crash' || event.kind === 'water' || event.kind === 'obstacle') {
         this.audio.speakATC?.('Tower to pilot, emergency crews are responding now.');
+        this.callbacks.onCrashResetSuggested?.();
       }
     });
 

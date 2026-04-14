@@ -1,78 +1,91 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
   <title id="title">Skylark Flight splash artwork</title>
-  <desc id="desc">Clean aviation splash screen with angled hero panels and centered title treatment.</desc>
+  <desc id="desc">A polished aviation splash screen with angled hero panels, a central title block, and clean loading-poster typography.</desc>
 
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#03111e"/>
-      <stop offset="40%" stop-color="#0a3a79"/>
-      <stop offset="100%" stop-color="#03101b"/>
+      <stop offset="0%" stop-color="#03101b"/>
+      <stop offset="46%" stop-color="#0d458c"/>
+      <stop offset="100%" stop-color="#04111d"/>
     </linearGradient>
-    <linearGradient id="core" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#35d0ff"/>
-      <stop offset="55%" stop-color="#2d8fff"/>
-      <stop offset="100%" stop-color="#104fb8"/>
+    <linearGradient id="panelGlow" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#6be8ff" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#1b7bff" stop-opacity="0.02"/>
     </linearGradient>
-    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.26"/>
-      <stop offset="45%" stop-color="#ffffff" stop-opacity="0.04"/>
-      <stop offset="100%" stop-color="#8deeff" stop-opacity="0.0"/>
+    <linearGradient id="centerPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1ecbff"/>
+      <stop offset="58%" stop-color="#2e8fff"/>
+      <stop offset="100%" stop-color="#1450b4"/>
     </linearGradient>
-    <clipPath id="panel-left-top">
-      <polygon points="36,76 612,76 452,420 36,420"/>
+    <linearGradient id="titleFade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#eefbff"/>
+    </linearGradient>
+    <clipPath id="leftPanel">
+      <polygon points="52,92 552,92 416,404 52,404"/>
     </clipPath>
-    <clipPath id="panel-left-bottom">
-      <polygon points="36,500 632,500 822,864 36,864"/>
+    <clipPath id="bottomPanel">
+      <polygon points="70,514 634,514 852,852 70,852"/>
     </clipPath>
-    <clipPath id="panel-right">
-      <polygon points="1004,88 1564,88 1564,864 972,864 1132,470"/>
+    <clipPath id="rightPanel">
+      <polygon points="1086,96 1548,96 1548,840 1032,840 1174,466"/>
     </clipPath>
-    <clipPath id="panel-center">
-      <polygon points="544,96 1076,96 1296,450 1078,804 546,804 326,450"/>
-    </clipPath>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#04101b" flood-opacity="0.45"/>
+    </filter>
   </defs>
 
   <rect width="1600" height="900" fill="url(#bg)"/>
-  <rect width="1600" height="900" fill="url(#shine)"/>
+  <rect width="1600" height="900" fill="url(#panelGlow)"/>
 
-  <circle cx="1320" cy="118" r="220" fill="#79efff" opacity="0.14"/>
-  <circle cx="262" cy="756" r="250" fill="#278bff" opacity="0.14"/>
+  <circle cx="1280" cy="118" r="188" fill="#8df0ff" opacity="0.16"/>
+  <circle cx="240" cy="774" r="238" fill="#237bff" opacity="0.14"/>
 
-  <g clip-path="url(#panel-left-top)">
-    <image href="/assets/hero.jpg" x="-60" y="-12" width="820" height="520" preserveAspectRatio="xMidYMid slice"/>
-    <rect width="1600" height="900" fill="#07131d" opacity="0.22"/>
+  <g clip-path="url(#leftPanel)">
+    <image href="/assets/hero.jpg" x="-40" y="-40" width="740" height="500" preserveAspectRatio="xMidYMid slice"/>
+    <rect width="1600" height="900" fill="#03111b" opacity="0.26"/>
   </g>
 
-  <g clip-path="url(#panel-left-bottom)">
-    <image href="/assets/hero.jpg" x="-90" y="336" width="980" height="610" preserveAspectRatio="xMidYMid slice"/>
-    <rect width="1600" height="900" fill="#06111a" opacity="0.26"/>
+  <g clip-path="url(#bottomPanel)">
+    <image href="/assets/hero.jpg" x="-60" y="330" width="980" height="620" preserveAspectRatio="xMidYMid slice"/>
+    <rect width="1600" height="900" fill="#04121d" opacity="0.34"/>
   </g>
 
-  <g clip-path="url(#panel-right)">
-    <image href="/assets/hero.jpg" x="812" y="84" width="820" height="760" preserveAspectRatio="xMidYMid slice"/>
-    <rect width="1600" height="900" fill="#071523" opacity="0.24"/>
+  <g clip-path="url(#rightPanel)">
+    <image href="/assets/hero.jpg" x="860" y="54" width="760" height="790" preserveAspectRatio="xMidYMid slice"/>
+    <rect width="1600" height="900" fill="#071726" opacity="0.28"/>
   </g>
 
-  <g clip-path="url(#panel-center)">
-    <rect x="326" y="96" width="970" height="708" fill="url(#core)"/>
-    <path d="M486 690 L1148 266" stroke="#ffffff" stroke-opacity="0.08" stroke-width="22"/>
-    <path d="M402 450 H1220" stroke="#effcff" stroke-opacity="0.16" stroke-width="2"/>
-    <path d="M560 308 H1070" stroke="#effcff" stroke-opacity="0.1" stroke-width="2"/>
-    <path d="M560 634 H1070" stroke="#effcff" stroke-opacity="0.1" stroke-width="2"/>
+  <g filter="url(#softShadow)">
+    <polygon points="524,118 1032,118 1268,450 1034,782 526,782 290,450" fill="url(#centerPanel)"/>
+    <polygon points="524,118 1032,118 1268,450 1034,782 526,782 290,450" fill="none" stroke="#effcff" stroke-opacity="0.9" stroke-width="4"/>
   </g>
 
-  <polygon points="36,76 612,76 452,420 36,420" fill="none" stroke="#d7fbff" stroke-opacity="0.82" stroke-width="4"/>
-  <polygon points="36,500 632,500 822,864 36,864" fill="none" stroke="#d7fbff" stroke-opacity="0.82" stroke-width="4"/>
-  <polygon points="1004,88 1564,88 1564,864 972,864 1132,470" fill="none" stroke="#d7fbff" stroke-opacity="0.82" stroke-width="4"/>
-  <polygon points="544,96 1076,96 1296,450 1078,804 546,804 326,450" fill="none" stroke="#effcff" stroke-opacity="0.9" stroke-width="4"/>
+  <polygon points="52,92 552,92 416,404 52,404" fill="none" stroke="#d9fbff" stroke-opacity="0.85" stroke-width="4"/>
+  <polygon points="70,514 634,514 852,852 70,852" fill="none" stroke="#d9fbff" stroke-opacity="0.85" stroke-width="4"/>
+  <polygon points="1086,96 1548,96 1548,840 1032,840 1174,466" fill="none" stroke="#d9fbff" stroke-opacity="0.85" stroke-width="4"/>
 
-  <text x="92" y="128" fill="#95efff" font-size="22" letter-spacing="6" font-family="Arial, Helvetica, sans-serif">SKYLARK FLIGHT</text>
-  <text x="1110" y="126" fill="#a8f3ff" font-size="38" font-style="italic" font-weight="700" font-family="Arial, Helvetica, sans-serif">Aether Edition</text>
-  <text x="1112" y="164" fill="#d9f8ff" font-size="18" letter-spacing="3" font-family="Arial, Helvetica, sans-serif">AVIATION CAREER AND FREE FLIGHT</text>
+  <g transform="translate(124,134)">
+    <text x="0" y="0" fill="#9bf0ff" font-size="24" letter-spacing="8" font-family="Arial, Helvetica, sans-serif">SKYLARK FLIGHT</text>
+    <text x="0" y="42" fill="#dff8ff" font-size="18" letter-spacing="4" font-family="Arial, Helvetica, sans-serif">AETHER EDITION</text>
+  </g>
 
-  <text x="812" y="266" text-anchor="middle" fill="#ecfbff" font-size="30" letter-spacing="10" font-weight="700" font-family="Arial, Helvetica, sans-serif">SKYLARK</text>
-  <text x="812" y="428" text-anchor="middle" fill="#ffffff" font-size="150" font-style="italic" font-weight="900" font-family="Arial, Helvetica, sans-serif">Flight</text>
-  <text x="812" y="548" text-anchor="middle" fill="#ffffff" font-size="130" font-style="italic" font-weight="900" font-family="Arial, Helvetica, sans-serif">Sim</text>
-  <text x="812" y="634" text-anchor="middle" fill="#e6fbff" font-size="22" letter-spacing="5" font-family="Arial, Helvetica, sans-serif">CAREER   ONLINE RACING   FREE FLIGHT</text>
-  <text x="812" y="680" text-anchor="middle" fill="#dcf8ff" font-size="18" letter-spacing="2.4" font-family="Arial, Helvetica, sans-serif">BUILD A FLEET. FLY THE WORLD. LAND WITH PRECISION.</text>
+  <g transform="translate(1112,140)" text-anchor="start">
+    <text x="0" y="0" fill="#aef3ff" font-size="36" font-style="italic" font-weight="700" font-family="Arial, Helvetica, sans-serif">World Tour Ready</text>
+    <text x="0" y="36" fill="#dff8ff" font-size="18" letter-spacing="4" font-family="Arial, Helvetica, sans-serif">FREE FLIGHT  |  RACING  |  CAREER</text>
+  </g>
+
+  <g text-anchor="middle">
+    <text x="780" y="254" fill="#d5f8ff" font-size="24" letter-spacing="10" font-family="Arial, Helvetica, sans-serif">SKYLARK</text>
+    <text x="780" y="412" fill="url(#titleFade)" font-size="148" font-style="italic" font-weight="900" font-family="Arial, Helvetica, sans-serif">Flight</text>
+    <text x="780" y="534" fill="url(#titleFade)" font-size="138" font-style="italic" font-weight="900" font-family="Arial, Helvetica, sans-serif">Sim</text>
+    <text x="780" y="610" fill="#e6fbff" font-size="20" letter-spacing="5" font-family="Arial, Helvetica, sans-serif">CAREER  |  ONLINE RACING  |  FREE FLIGHT</text>
+    <text x="780" y="658" fill="#dcf8ff" font-size="18" letter-spacing="2.4" font-family="Arial, Helvetica, sans-serif">BUILD A FLEET. CROSS THE WORLD. LAND WITH PRECISION.</text>
+  </g>
+
+  <g transform="translate(118,758)">
+    <rect x="0" y="0" width="420" height="68" rx="34" fill="#06121e" fill-opacity="0.42"/>
+    <text x="28" y="26" fill="#9cefff" font-size="16" letter-spacing="4" font-family="Arial, Helvetica, sans-serif">FLIGHT DECK LOADING</text>
+    <text x="28" y="50" fill="#e5fbff" font-size="16" letter-spacing="1.8" font-family="Arial, Helvetica, sans-serif">Streaming aircraft, terrain, and training systems</text>
+  </g>
 </svg>
