@@ -51,6 +51,81 @@ function sanitizeProfile(profile = {}) {
   };
 }
 
+const STARTER_PLANES = ['prop', 'fighter'];
+const STARTER_GUNS = ['standard'];
+
+function uniqueStringList(value) {
+  return [...new Set((Array.isArray(value) ? value : [])
+    .map(entry => String(entry ?? '').trim())
+    .filter(Boolean))];
+}
+
+function normalizeCareerState(career = {}) {
+  const ownedPlanes = uniqueStringList(career.ownedPlanes);
+  const ownedGuns = uniqueStringList(career.ownedGuns);
+  return {
+    money: Math.max(0, Math.round(Number(career.money) || 0)),
+    rankIndex: Math.max(0, Math.round(Number(career.rankIndex) || 0)),
+    rankProgress: Math.max(0, Math.round(Number(career.rankProgress) || 0)),
+    legendScore: Math.max(0, Math.round(Number(career.legendScore) || 0)),
+    ownedPlanes: uniqueStringList([...STARTER_PLANES, ...ownedPlanes]),
+    ownedGuns: uniqueStringList([...STARTER_GUNS, ...ownedGuns]),
+    equippedGun: String(career.equippedGun ?? 'standard').trim() || 'standard',
+    raceHistory: Array.isArray(career.raceHistory) ? career.raceHistory.slice(0, 20) : [],
+  };
+}
+
+function normalizeDamageState(damage = {}) {
+  if (!damage || typeof damage !== 'object' || Array.isArray(damage)) return {};
+  return Object.fromEntries(
+    Object.entries(damage).map(([type, condition]) => [
+      type,
+      Math.max(0, Math.min(100, Math.round(Number(condition) || 0))),
+    ])
+  );
+}
+
+function buildAdminProfileMutation(targetUser, changes = {}) {
+  const currentProfile = sanitizeProfile(targetUser?.profile ?? {});
+  const career = normalizeCareerState(currentProfile.career ?? {});
+  const damage = normalizeDamageState(currentProfile.damage ?? {});
+  const grantPlanes = uniqueStringList(changes.grantPlanes);
+  const revokePlanes = new Set(uniqueStringList(changes.revokePlanes));
+  const grantGuns = uniqueStringList(changes.grantGuns);
+  const revokeGuns = new Set(uniqueStringList(changes.revokeGuns));
+  const moneyDelta = Math.round(Number(changes.moneyDelta) || 0);
+  const repairAll = !!changes.repairAll;
+
+  career.money = Math.max(0, career.money + moneyDelta);
+  career.ownedPlanes = uniqueStringList([...career.ownedPlanes, ...grantPlanes])
+    .filter(type => !revokePlanes.has(type) || STARTER_PLANES.includes(type));
+  career.ownedPlanes = uniqueStringList([...STARTER_PLANES, ...career.ownedPlanes]);
+  career.ownedGuns = uniqueStringList([...career.ownedGuns, ...grantGuns])
+    .filter(type => !revokeGuns.has(type) || STARTER_GUNS.includes(type));
+  career.ownedGuns = uniqueStringList([...STARTER_GUNS, ...career.ownedGuns]);
+  if (!career.ownedGuns.includes(career.equippedGun)) {
+    career.equippedGun = career.ownedGuns[0] ?? 'standard';
+  }
+
+  if (repairAll) {
+    Object.keys(damage).forEach(type => {
+      damage[type] = 100;
+    });
+    career.ownedPlanes.forEach(type => {
+      damage[type] = 100;
+    });
+  }
+
+  return sanitizeProfile({
+    ...currentProfile,
+    career: {
+      ...(currentProfile.career ?? {}),
+      ...career,
+    },
+    damage,
+  });
+}
+
 function getDefaultUserStatus() {
   return {
     banned: false,
@@ -84,6 +159,8 @@ function summarizePlayerStats(user) {
     rankIndex: Number(career.rankIndex) || 0,
     rankProgress: Number(career.rankProgress) || 0,
     legendScore: Number(career.legendScore) || 0,
+    planes: Array.isArray(career.ownedPlanes) ? career.ownedPlanes.length : STARTER_PLANES.length,
+    guns: Array.isArray(career.ownedGuns) ? career.ownedGuns.length : STARTER_GUNS.length,
   };
 }
 
@@ -412,6 +489,27 @@ app.post('/api/admin/users/:userId/ban', requireSession, requireAdmin, async (re
   } catch (error) {
     console.error('[Admin] Failed to update ban:', error.message);
     res.status(500).json({ error: 'Unable to update player status' });
+  }
+});
+
+app.post('/api/admin/users/:userId/inventory', requireSession, requireAdmin, async (req, res) => {
+  const targetId = String(req.params.userId ?? '').trim();
+  try {
+    const target = await storage.findUserById(targetId);
+    if (!target) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    const nextProfile = buildAdminProfileMutation(target, req.body ?? {});
+    const updated = await storage.updateUserProfile(targetId, nextProfile);
+    res.json({
+      ok: true,
+      user: summarizeUserForAdmin(updated ?? { ...target, profile: nextProfile }),
+      profile: nextProfile,
+    });
+  } catch (error) {
+    console.error('[Admin] Failed to update player inventory:', error.message);
+    res.status(500).json({ error: 'Unable to update player inventory' });
   }
 });
 

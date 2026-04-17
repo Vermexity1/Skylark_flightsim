@@ -386,7 +386,7 @@
 
 <!-- Animated star background (menus only) -->
 <canvas id="stars-canvas"></canvas>
-<div id="screen-splash" class="screen" style="z-index:28; display:flex;">
+<div id="screen-splash" class="screen" style="z-index:28; display:none;">
   <div id="splash-stage">
     <div id="splash-pulse"></div>
     <div id="splash-loading-caption">Aether Edition · Flight Deck Boot Sequence</div>
@@ -1131,15 +1131,12 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
   function showSplash(status = 'Loading flight systems', progress = 0.08, options = {}) {
     splashToken += 1;
-    splashRuns.set(splashToken, {
-      startedAt: performance.now(),
-      minDuration: Math.max(0, Number(options.minDuration) || 0),
-    });
-    if (options.pin) splashPinToken = splashToken;
+    splashRuns.set(splashToken, { startedAt: performance.now(), minDuration: 0 });
+    splashPinToken = 0;
     const splash = document.getElementById('screen-splash');
     if (splash) {
-      splash.style.display = 'flex';
-      splash.style.opacity = '1';
+      splash.style.opacity = '0';
+      splash.style.display = 'none';
     }
     setSplashProgress(progress, status);
     return splashToken;
@@ -1148,20 +1145,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   function hideSplash(token = splashToken, delay = 180, force = false) {
     const splash = document.getElementById('screen-splash');
     if (!splash) return;
-    if (splashPinToken === token && !force) return;
-    const meta = splashRuns.get(token);
-    const elapsed = meta ? performance.now() - meta.startedAt : 0;
-    const minDelay = meta ? Math.max(0, meta.minDuration - elapsed) : 0;
+    splash.style.opacity = '0';
+    splash.style.display = 'none';
     if (splashPinToken === token) splashPinToken = 0;
-    window.setTimeout(() => {
-      if (token !== splashToken) return;
-      splash.style.opacity = '0';
-      window.setTimeout(() => {
-        if (token !== splashToken) return;
-        splash.style.display = 'none';
-        splashRuns.delete(token);
-      }, 320);
-    }, delay + minDelay);
+    splashRuns.delete(token);
   }
 
   function wait(ms) {
@@ -1518,6 +1505,32 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         </div>
       `;
     }).join('');
+    adminConsole.users.forEach(user => {
+      const meta = list.querySelector(`[data-admin-meta="${user.id}"]`);
+      if (meta && !meta.querySelector('[data-admin-fleet]')) {
+        const fleet = document.createElement('div');
+        fleet.dataset.adminFleet = 'true';
+        fleet.style.marginTop = '4px';
+        fleet.textContent = `Fleet · ${Number(user.stats?.planes ?? 0)} planes · ${Number(user.stats?.guns ?? 0)} guns`;
+        meta.appendChild(fleet);
+      }
+      const actions = list.querySelector(`[data-admin-actions="${user.id}"]`);
+      if (actions && !actions.querySelector('[data-admin-tools]')) {
+        const tools = document.createElement('div');
+        tools.dataset.adminTools = 'true';
+        tools.style.display = 'contents';
+        tools.innerHTML = `
+          <button class="btn btn-accent" onclick="App.adjustPlayerMoney('${user.id}', 50000)" style="padding:8px 12px; font-size:11px;">+$50K</button>
+          <button class="btn btn-ghost" onclick="App.adjustPlayerMoney('${user.id}', -10000)" style="padding:8px 12px; font-size:11px;">Take $10K</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerPlane('${user.id}', 'grant')" style="padding:8px 12px; font-size:11px;">Grant Plane</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerPlane('${user.id}', 'revoke')" style="padding:8px 12px; font-size:11px;">Remove Plane</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerGun('${user.id}', 'grant')" style="padding:8px 12px; font-size:11px;">Grant Gun</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerGun('${user.id}', 'revoke')" style="padding:8px 12px; font-size:11px;">Remove Gun</button>
+          <button class="btn btn-ghost" onclick="App.repairPlayerFleet('${user.id}')" style="padding:8px 12px; font-size:11px;">Repair</button>
+        `;
+        actions.prepend(tools);
+      }
+    });
   }
 
   function getRepairTasks(type) {
@@ -1862,19 +1875,19 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       const banLabel = banned ? 'Unban' : 'Ban';
       const banColor = banned ? 'btn-accent' : 'btn-ghost';
       return `
-        <div style="padding:12px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
+        <div data-admin-card="${user.id}" style="padding:12px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06);">
           <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
             <div>
               <div style="font-size:13px; color:#e8f4fd; font-weight:700;">${escHtml(user.username)}${isCurrent ? ' · YOU' : ''}</div>
               <div style="font:10px 'JetBrains Mono', monospace; color:#8db8dd; letter-spacing:1.4px; margin-top:4px;">${escHtml(user.playerId ?? user.id ?? '')}</div>
-              <div style="font-size:11px; color:#9fc7e7; margin-top:6px; line-height:1.5;">
+              <div data-admin-meta="${user.id}" style="font-size:11px; color:#9fc7e7; margin-top:6px; line-height:1.5;">
                 ${banned ? `BANNED${user.status?.banReason ? ` · ${escHtml(user.status.banReason)}` : ''}` : 'ACTIVE'}
                 · ${String(user.role ?? 'player').toUpperCase()}
                 · $${Number(user.stats?.money ?? 0).toLocaleString()}
                 · ${Number(user.stats?.launches ?? 0)} launches
               </div>
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <div data-admin-actions="${user.id}" style="display:flex; gap:8px; flex-wrap:wrap;">
               <button class="btn ${banColor}" onclick="App.togglePlayerBan('${user.id}', ${banned ? 'false' : 'true'})" style="padding:8px 12px; font-size:11px;">${banLabel}</button>
               <button class="btn btn-primary" onclick="App.impersonatePlayer('${user.id}')" style="padding:8px 12px; font-size:11px;">Play As</button>
             </div>
@@ -2664,6 +2677,94 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       }
     },
 
+    async updatePlayerInventory(userId, payload, successMessage = 'Player inventory updated') {
+      if (!authState?.token || authState?.user?.role !== 'dev') {
+        toast('Developer access required', 2200);
+        return false;
+      }
+      try {
+        const resp = await fetch(`${API_BASE}/admin/users/${userId}/inventory`, {
+          method: 'POST',
+          headers: getAuthHeaders(true),
+          body: JSON.stringify(payload),
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Unable to update player inventory');
+        if (userId === authState?.user?.id && data?.profile) {
+          applyRemoteProfile(data.profile);
+        }
+        await loadAdminUsers(false);
+        renderCareerScreen();
+        renderHangar();
+        renderSettingsScreen();
+        toast(successMessage, 1800);
+        return true;
+      } catch (error) {
+        toast(error.message || 'Unable to update player inventory', 2200);
+        return false;
+      }
+    },
+
+    async adjustPlayerMoney(userId, suggestedDelta = 50000) {
+      const raw = window.prompt('Adjust credits. Use positive to grant or negative to remove.', String(suggestedDelta));
+      if (raw === null) return;
+      const delta = Math.round(Number(raw));
+      if (!Number.isFinite(delta) || delta === 0) {
+        toast('Enter a non-zero credit amount', 1800);
+        return;
+      }
+      await this.updatePlayerInventory(
+        userId,
+        { moneyDelta: delta },
+        delta > 0 ? `Granted $${Math.abs(delta).toLocaleString()}` : `Removed $${Math.abs(delta).toLocaleString()}`
+      );
+    },
+
+    async managePlayerPlane(userId, mode = 'grant') {
+      const options = Object.entries(AIRCRAFT)
+        .filter(([id]) => !id.startsWith('custom'))
+        .map(([id, aircraft]) => `${id} - ${aircraft.name}`)
+        .join('\n');
+      const planeId = String(window.prompt(
+        `${mode === 'grant' ? 'Grant' : 'Remove'} plane by id:\n\n${options}`,
+        mode === 'grant' ? 'concorde' : 'fighter'
+      ) ?? '').trim();
+      if (!planeId) return;
+      if (!AIRCRAFT[planeId]) {
+        toast('Unknown plane id', 1800);
+        return;
+      }
+      await this.updatePlayerInventory(
+        userId,
+        mode === 'grant' ? { grantPlanes: [planeId] } : { revokePlanes: [planeId] },
+        mode === 'grant' ? `Granted ${AIRCRAFT[planeId].name}` : `Removed ${AIRCRAFT[planeId].name}`
+      );
+    },
+
+    async managePlayerGun(userId, mode = 'grant') {
+      const options = Object.entries(RACE.GUNS)
+        .map(([id, gun]) => `${id} - ${gun.name}`)
+        .join('\n');
+      const gunId = String(window.prompt(
+        `${mode === 'grant' ? 'Grant' : 'Remove'} gun by id:\n\n${options}`,
+        mode === 'grant' ? 'burst' : 'standard'
+      ) ?? '').trim();
+      if (!gunId) return;
+      if (!RACE.GUNS[gunId]) {
+        toast('Unknown gun id', 1800);
+        return;
+      }
+      await this.updatePlayerInventory(
+        userId,
+        mode === 'grant' ? { grantGuns: [gunId] } : { revokeGuns: [gunId] },
+        mode === 'grant' ? `Granted ${RACE.GUNS[gunId].name}` : `Removed ${RACE.GUNS[gunId].name}`
+      );
+    },
+
+    async repairPlayerFleet(userId) {
+      await this.updatePlayerInventory(userId, { repairAll: true }, 'Fleet repaired');
+    },
+
     devGrantCredits() {
       if (authState?.user?.role !== 'dev') {
         toast('Developer access required', 2200);
@@ -2936,8 +3037,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         totalChallengeStarts: (activityState.totalChallengeStarts ?? 0) + (sel.mode === 'challenge' ? 1 : 0),
       };
       queueProfileSync();
-      const splashRun = showSplash('Streaming terrain and cockpit systems', 0.08, { minDuration: 4600 });
-      await wait(140);
+      hideSplash();
       hideAll();
       document.getElementById('screen-game').style.display = 'block';
       document.getElementById('stars-canvas').style.display = 'none';
@@ -2952,8 +3052,6 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       const canvas    = document.getElementById('game-canvas');
       const hudMount  = document.getElementById('hud-mount');
       hudMount.innerHTML = '';
-      setSplashProgress(0.28, 'Powering renderer and world systems');
-
       engine = new GameEngine(canvas, {
         damageSystem: damageStore,
         careerSystem: careerStore,
@@ -3019,7 +3117,6 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         ensureCustomAircraftDefinition();
       }
 
-      setSplashProgress(0.52, 'Building world geometry');
       await engine.init(sel.aircraft, sel.env, sel.mode, {
         practiceRankIndex: sel.practiceRankIndex,
         authToken: authState?.token ?? null,
@@ -3030,7 +3127,6 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       });
 
       // Create HUD after engine.init so worldMgr has rings loaded
-      setSplashProgress(0.78, 'Aligning HUD and flight instruments');
       hud = new HUD(hudMount, engine.world);
       hud.setAdvancedMode(appSettings.advancedUi);
       engine.applySettings({
@@ -3053,8 +3149,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       });
 
       engine.start();
-      setSplashProgress(1, 'Ready for takeoff');
-      hideSplash(splashRun, 320);
+      hideSplash();
       if (activityState.tutorialActive) {
         window.setTimeout(() => {
           if (!hud?.isHelpVisible?.()) {
@@ -3763,25 +3858,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   async function runInitialBoot() {
     bindUI();
     renderHangar();
-    const splashRun = showSplash('Loading skylines and aircraft showcases', 0.05, {
-      minDuration: 12800,
-      pin: true,
-    });
-    await wait(1500);
-    setSplashProgress(0.16, 'Streaming splash artwork and avionics');
-    await wait(1900);
-    setSplashProgress(0.34, 'Indexing terrain, aircraft, and race systems');
-    await wait(1900);
-    setSplashProgress(0.52, 'Calibrating HUD, camera, and controls');
-    const resumeTask = App.resumeSession();
-    await wait(2200);
-    setSplashProgress(0.72, 'Connecting pilot profile and cloud activity');
-    await resumeTask;
-    await wait(1800);
-    setSplashProgress(0.9, 'Opening the flight deck');
-    await wait(900);
-    setSplashProgress(1, 'Ready');
-    hideSplash(splashRun, 260, true);
+    hideSplash();
+    await App.resumeSession();
+    hideSplash();
   }
 
   if (document.readyState === 'loading') {
