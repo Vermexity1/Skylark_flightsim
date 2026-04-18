@@ -173,12 +173,19 @@ export class RealEarthBeta {
         return true;
       }
     } catch (error) {
+      this._setDiagnostic('cesium-geocode', 'warn', `Cesium search fallback triggered: ${error?.message || error}`);
       console.warn('[RealEarthBeta] Cesium geocoder failed, falling back', error);
     }
 
     if (this.config?.mapboxToken) {
-      const found = await this._flyToMapboxQuery(Cesium, trimmed);
-      if (found) return true;
+      try {
+        const found = await this._flyToMapboxQuery(Cesium, trimmed);
+        if (found) return true;
+      } catch (error) {
+        const message = String(error?.message || error);
+        const status = /\b403\b/.test(message) ? 'warn' : 'error';
+        this._setDiagnostic('mapbox-geocode', status, `Mapbox fallback unavailable: ${message}`);
+      }
     }
 
     return false;
@@ -247,7 +254,9 @@ export class RealEarthBeta {
           data?.features?.length ? 'Mapbox geocoder returned results.' : 'Mapbox geocoder returned no results.'
         );
       } catch (error) {
-        this._setDiagnostic('mapbox-geocode', 'error', `Mapbox geocoder failed: ${error?.message || error}`);
+        const message = String(error?.message || error);
+        const status = /\b403\b/.test(message) ? 'warn' : 'error';
+        this._setDiagnostic('mapbox-geocode', status, `Mapbox geocoder failed: ${message}`);
       }
     } else {
       this._setDiagnostic('mapbox-geocode', 'warn', 'Mapbox token missing.');

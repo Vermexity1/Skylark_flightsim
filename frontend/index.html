@@ -2883,7 +2883,14 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       try {
         const found = await earthBeta.flyToQuery(query);
         if (!found) {
-          toast('Location not found', 1800);
+          const cesiumHealthy = realEarthDiagnostics.some(item => item.id === 'cesium-geocode' && item.status === 'ok');
+          const mapboxWarningOnly = realEarthDiagnostics.some(item => item.id === 'mapbox-geocode' && item.status === 'warn');
+          toast(
+            cesiumHealthy && mapboxWarningOnly
+              ? 'Search did not find that location. Cesium search is active; Mapbox fallback is optional.'
+              : 'Location not found',
+            2200
+          );
           return;
         }
         toast(`Flying to ${query}`, 1600);
