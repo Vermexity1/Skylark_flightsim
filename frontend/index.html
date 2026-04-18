@@ -913,6 +913,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         <div style="padding:14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
           <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">PROVIDERS</div>
           <div id="real-earth-providers" style="display:grid; gap:8px;"></div>
+          <div id="real-earth-diagnostics" style="display:grid; gap:8px; margin-top:12px;"></div>
         </div>
         <div style="padding:14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
           <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">QUICK JUMPS</div>
@@ -1239,6 +1240,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     loading: false,
   };
   let worldStreamingConfig = null;
+  let realEarthDiagnostics = [];
   const REAL_EARTH_JUMPS = [
     { id: 'sfo', label: 'SFO', name: 'San Francisco Intl', region: 'California, USA', lon: -122.3790, lat: 37.6213, altitude: 12000 },
     { id: 'lax', label: 'LAX', name: 'Los Angeles Intl', region: 'California, USA', lon: -118.4085, lat: 33.9416, altitude: 13000 },
@@ -1677,6 +1679,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     const status = normalizeWorldStreamingStatus(worldStreamingStatus);
     const statusEl = document.getElementById('real-earth-status');
     const providersEl = document.getElementById('real-earth-providers');
+    const diagnosticsEl = document.getElementById('real-earth-diagnostics');
     const jumpsEl = document.getElementById('real-earth-jumps');
     const selectedEl = document.getElementById('real-earth-selected');
     if (statusEl) {
@@ -1686,6 +1689,26 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     }
     if (providersEl) {
       providersEl.innerHTML = renderWorldStreamingProviders(status);
+    }
+    if (diagnosticsEl) {
+      diagnosticsEl.innerHTML = realEarthDiagnostics.length
+        ? realEarthDiagnostics.map(item => {
+            const tone = item.status === 'ok'
+              ? { border: 'rgba(124,240,212,0.22)', bg: 'rgba(124,240,212,0.08)', color: '#7cf0d4' }
+              : item.status === 'warn'
+                ? { border: 'rgba(255,211,106,0.22)', bg: 'rgba(255,211,106,0.08)', color: '#ffd36a' }
+                : { border: 'rgba(255,120,120,0.24)', bg: 'rgba(255,120,120,0.08)', color: '#ff9f9f' };
+            return `
+              <div style="padding:10px 12px; border-radius:10px; border:1px solid ${tone.border}; background:${tone.bg};">
+                <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+                  <div style="font-size:10px; letter-spacing:1px; color:${tone.color}; text-transform:uppercase;">${escHtml(item.id)}</div>
+                  <div style="font-size:10px; color:${tone.color}; text-transform:uppercase;">${escHtml(item.status)}</div>
+                </div>
+                <div style="font-size:11px; color:#dff4ff; line-height:1.6; margin-top:6px;">${escHtml(item.message)}</div>
+              </div>
+            `;
+          }).join('')
+        : `<div style="font-size:11px; color:#9fc7e7; line-height:1.6;">Diagnostics will appear here after the viewer starts. If imagery is still black, these entries usually point to the failing provider.</div>`;
     }
     if (jumpsEl) {
       jumpsEl.innerHTML = REAL_EARTH_JUMPS.map(jump => `
@@ -2772,6 +2795,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       }
       try {
         const status = await loadWorldStreamingStatus(false);
+        realEarthDiagnostics = [];
         renderRealEarthPanel();
         if (!status.ready) {
           this.showWorldStreamingInfo();
@@ -2789,6 +2813,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         earthBeta = new RealEarthBeta(container, {
           onReady: camera => updateRealEarthLocationReadout(camera),
           onCameraChanged: camera => updateRealEarthLocationReadout(camera),
+          onDiagnostics: diagnostics => {
+            realEarthDiagnostics = diagnostics;
+            renderRealEarthPanel();
+          },
         });
         await earthBeta.init(config.publicConfig ?? {});
         if (realEarthSelection) {
@@ -2809,6 +2837,11 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         toast('Real Earth Beta ready', 1600);
       } catch (error) {
         console.error('[RealEarthBeta] launch failed', error);
+        realEarthDiagnostics = [{
+          id: 'startup',
+          status: 'error',
+          message: error?.message || 'Real Earth Beta could not start.',
+        }];
         if (earthBeta) {
           earthBeta.destroy();
           earthBeta = null;

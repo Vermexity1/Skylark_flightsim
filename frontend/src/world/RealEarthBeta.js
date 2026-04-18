@@ -7,6 +7,25 @@ export class RealEarthBeta {
     this.cameraListener = null;
     this.config = null;
     this.mapboxOverlay = null;
+    this.renderErrorListener = null;
+    this.diagnostics = [];
+  }
+
+  _setDiagnostic(id, status, message) {
+    const entry = {
+      id,
+      status,
+      message,
+      at: new Date().toISOString(),
+    };
+    const existing = this.diagnostics.findIndex(item => item.id === id);
+    if (existing >= 0) this.diagnostics[existing] = entry;
+    else this.diagnostics.push(entry);
+    this.callbacks.onDiagnostics?.(this.getDiagnostics());
+  }
+
+  getDiagnostics() {
+    return [...this.diagnostics];
   }
 
   _requireCesium() {
@@ -35,11 +54,20 @@ export class RealEarthBeta {
 
     Cesium.Ion.defaultAccessToken = config.cesiumToken;
 
+    const terrain = Cesium.Terrain.fromWorldTerrain({
+      requestVertexNormals: true,
+      requestWaterMask: true,
+    });
+
+    terrain.readyEvent.addEventListener(() => {
+      this._setDiagnostic('terrain', 'ok', 'Cesium terrain connected.');
+    });
+    terrain.errorEvent.addEventListener(error => {
+      this._setDiagnostic('terrain', 'error', `Terrain failed: ${error?.message || error}`);
+    });
+
     this.viewer = new Cesium.Viewer(this.container, {
-      terrain: Cesium.Terrain.fromWorldTerrain({
-        requestVertexNormals: true,
-        requestWaterMask: true,
-      }),
+      terrain,
       baseLayer: Cesium.ImageryLayer.fromWorldImagery(),
       animation: false,
       timeline: false,
@@ -64,9 +92,17 @@ export class RealEarthBeta {
     this.viewer.scene.fog.enabled = true;
     this.viewer.scene.highDynamicRange = true;
     this.viewer.clock.multiplier = 200;
+    this._setDiagnostic('viewer', 'ok', 'Cesium viewer initialized.');
+
+    this.renderErrorListener = error => {
+      this._setDiagnostic('render', 'error', `Scene render error: ${error?.message || error}`);
+    };
+    this.viewer.scene.renderError.addEventListener(this.renderErrorListener);
 
     if (config.mapboxToken) {
       this._applyMapboxOverlay(Cesium, config.mapboxToken);
+    } else {
+      this._setDiagnostic('mapbox-overlay', 'warn', 'Mapbox token missing. Running with Cesium world imagery only.');
     }
 
     try {
@@ -82,6 +118,7 @@ export class RealEarthBeta {
     this.viewer.camera.changed.addEventListener(this.cameraListener);
 
     this.flyToDefaultView();
+    await this.runDiagnostics();
     this.callbacks.onReady?.(this.getCameraStatus());
   }
 
@@ -96,7 +133,9 @@ export class RealEarthBeta {
       this.mapboxOverlay.alpha = 0.92;
       this.mapboxOverlay.brightness = 1.04;
       this.mapboxOverlay.saturation = 0.96;
+      this._setDiagnostic('mapbox-overlay', 'ok', 'Mapbox satellite overlay requested.');
     } catch (error) {
+      this._setDiagnostic('mapbox-overlay', 'error', `Mapbox overlay failed: ${error?.message || error}`);
       console.warn('[RealEarthBeta] Mapbox overlay failed to initialize', error);
     }
   }
@@ -175,6 +214,45 @@ export class RealEarthBeta {
     return true;
   }
 
+  async runDiagnostics() {
+    const Cesium = this._requireCesium();
+    this._setDiagnostic('startup', 'ok', 'Running provider diagnostics...');
+
+    try {
+      const geocoder = new Cesium.IonGeocoderService({
+        scene: this.viewer.scene,
+        accessToken: this.config?.cesiumToken,
+      });
+      const results = await geocoder.geocode('San Francisco', Cesium.GeocodeType.SEARCH);
+      this._setDiagnostic(
+        'cesium-geocode',
+        results?.length ? 'ok' : 'warn',
+        results?.length ? 'Cesium geocoder returned results.' : 'Cesium geocoder returned no results.'
+      );
+    } catch (error) {
+      this._setDiagnostic('cesium-geocode', 'error', `Cesium geocoder failed: ${error?.message || error}`);
+    }
+
+    if (this.config?.mapboxToken) {
+      try {
+        const response = await fetch(`https://api.mapbox.com/search/geocode/v6/forward?q=${encodeURIComponent('San Francisco')}&limit=1&access_token=${this.config.mapboxToken}`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        this._setDiagnostic(
+          'mapbox-geocode',
+          data?.features?.length ? 'ok' : 'warn',
+          data?.features?.length ? 'Mapbox geocoder returned results.' : 'Mapbox geocoder returned no results.'
+        );
+      } catch (error) {
+        this._setDiagnostic('mapbox-geocode', 'error', `Mapbox geocoder failed: ${error?.message || error}`);
+      }
+    } else {
+      this._setDiagnostic('mapbox-geocode', 'warn', 'Mapbox token missing.');
+    }
+  }
+
   getCameraStatus() {
     const Cesium = globalThis.Cesium;
     if (!Cesium || !this.viewer) {
@@ -202,7 +280,11 @@ export class RealEarthBeta {
     if (this.viewer?.camera && this.cameraListener) {
       this.viewer.camera.changed.removeEventListener(this.cameraListener);
     }
+    if (this.viewer?.scene && this.renderErrorListener) {
+      this.viewer.scene.renderError.removeEventListener(this.renderErrorListener);
+    }
     this.cameraListener = null;
+    this.renderErrorListener = null;
     if (this.viewer) {
       this.viewer.destroy();
       this.viewer = null;
@@ -212,5 +294,6 @@ export class RealEarthBeta {
     }
     this.mapboxOverlay = null;
     this.buildingsTileset = null;
+    this.diagnostics = [];
   }
 }
