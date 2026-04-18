@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>FlightSim — Browser Flight Simulator</title>
 
   <!-- Fonts -->
@@ -914,6 +915,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">PROVIDERS</div>
           <div id="real-earth-providers" style="display:grid; gap:8px;"></div>
           <div id="real-earth-diagnostics" style="display:grid; gap:8px; margin-top:12px;"></div>
+          <div id="real-earth-origin" style="font-size:11px; color:#9fc7e7; margin-top:12px; line-height:1.6;"></div>
         </div>
         <div style="padding:14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
           <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">QUICK JUMPS</div>
@@ -1680,6 +1682,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     const statusEl = document.getElementById('real-earth-status');
     const providersEl = document.getElementById('real-earth-providers');
     const diagnosticsEl = document.getElementById('real-earth-diagnostics');
+    const originEl = document.getElementById('real-earth-origin');
     const jumpsEl = document.getElementById('real-earth-jumps');
     const selectedEl = document.getElementById('real-earth-selected');
     if (statusEl) {
@@ -1709,6 +1712,14 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
             `;
           }).join('')
         : `<div style="font-size:11px; color:#9fc7e7; line-height:1.6;">Diagnostics will appear here after the viewer starts. If imagery is still black, these entries usually point to the failing provider.</div>`;
+    }
+    if (originEl) {
+      const has403 = realEarthDiagnostics.some(item => item.status === 'error' && /\b403\b/i.test(item.message));
+      originEl.innerHTML = `
+        <div>Site origin: <span style="color:#dff4ff;">${escHtml(window.location.origin)}</span></div>
+        <div>Referrer policy: <span style="color:#dff4ff;">strict-origin-when-cross-origin</span></div>
+        ${has403 ? `<div style="margin-top:8px; color:#ffd36a;">403 on provider calls usually means the provider token is rejecting this origin, or the token is missing a required scope.</div>` : ''}
+      `;
     }
     if (jumpsEl) {
       jumpsEl.innerHTML = REAL_EARTH_JUMPS.map(jump => `

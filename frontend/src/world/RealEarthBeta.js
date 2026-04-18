@@ -217,6 +217,7 @@ export class RealEarthBeta {
   async runDiagnostics() {
     const Cesium = this._requireCesium();
     this._setDiagnostic('startup', 'ok', 'Running provider diagnostics...');
+    this._setDiagnostic('origin', 'ok', `Browser origin: ${globalThis.location?.origin || 'unknown'}`);
 
     try {
       const geocoder = new Cesium.IonGeocoderService({
