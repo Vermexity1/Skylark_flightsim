@@ -1,8 +1,11 @@
+import * as THREE from 'three';
+import { BOOST, PHYSICS } from '../config.js';
+import { FlightPhysics } from '../physics/FlightPhysics.js';
 import { ASSET_SOURCES } from '../assets/AssetCatalog.js';
 
 const EARTH_RADIUS_METERS = 6378137;
-const GROUND_CLEARANCE_METERS = 2.8;
-const FLIGHT_CLEARANCE_METERS = 8;
+const GROUND_CLEARANCE_METERS = 2.4;
+const FLIGHT_CLEARANCE_METERS = 5.5;
 
 const MODEL_FALLBACKS = {
   prop: 'mustang',
@@ -20,12 +23,13 @@ const MODEL_FALLBACKS = {
   custom_upload: 'custom_upload',
 };
 
+const _forward = new THREE.Vector3();
+const _velocityDir = new THREE.Vector3();
+const _desiredVelocity = new THREE.Vector3();
+const _rotationEuler = new THREE.Euler();
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
-}
-
-function damp(current, target, rate, dt) {
-  return current + (target - current) * Math.min(1, rate * dt);
 }
 
 function wrapLongitude(lon) {
@@ -63,10 +67,31 @@ export class RealEarthFlightController {
     this.keys = new Set();
     this.bindings = null;
     this.aircraft = null;
-    this.state = null;
-    this.planeEntity = null;
     this.modelSource = null;
+    this.planeEntity = null;
+    this.boostFuel = BOOST.MAX_FUEL;
+    this.boostCooldown = 0;
+    this.boostActive = false;
+    this.throttle = 0;
+    this.gForce = 1;
+    this.landed = null;
+    this.nearGround = false;
+    this.gearDeployed = true;
+    this.grounded = true;
+    this.warning = 'Holding short';
+    this.launchLabel = 'Earth ground start';
+    this.controlState = { pitch: 0, roll: 0, yaw: 0 };
+    this.quaternion = new THREE.Quaternion();
+    this.position = new THREE.Vector3(0, 0, 0);
+    this.velocity = new THREE.Vector3(0, 0, 0);
+    this.prevVelocity = new THREE.Vector3();
+    this.lat = 0;
+    this.lon = 0;
+    this.terrainHeight = 0;
+    this.surfaceHeight = 0;
+    this.surfaceClearance = GROUND_CLEARANCE_METERS;
     this._lastImpactTime = 0;
+    this._cameraDestination = null;
 
     this._onKeyDown = this._handleKeyDown.bind(this);
     this._onKeyUp = this._handleKeyUp.bind(this);
@@ -89,31 +114,33 @@ export class RealEarthFlightController {
       throw new Error('A valid airport launch point is required for Earth flight.');
     }
 
-    const surface = await this._sampleSurface(lonDeg, latDeg);
-    const surfaceHeight = Number.isFinite(surface.surfaceHeight) ? surface.surfaceHeight : 0;
-    const clearance = GROUND_CLEARANCE_METERS + Math.max(0, Number(this.modelSource?.offsetY) || 0);
-
-    this.state = {
-      lon: Cesium.Math.toRadians(lonDeg),
-      lat: Cesium.Math.toRadians(latDeg),
-      altitudeMeters: surfaceHeight + clearance,
-      terrainHeight: surface.terrainHeight,
-      surfaceHeight,
-      speedMps: 0,
-      throttle: 0,
-      heading: Cesium.Math.toRadians(Number(spawn?.headingDeg) || 0),
-      pitch: 0,
-      roll: 0,
-      verticalSpeed: 0,
-      grounded: true,
-      gearDeployed: true,
-      aircraftName: aircraft?.name ?? 'Aircraft',
-      launchLabel: spawn?.launchLabel ?? 'Earth airport spawn',
-      maxSpeed: Math.max(120, Number(aircraft?.maxSpeed) || 320),
-      stallSpeed: Math.max(22, Number(aircraft?.stallSpeed) || 60),
-      modelYawOffset: Cesium.Math.toRadians(Number(this.modelSource?.rotationY) || 0),
-      warning: 'Holding short',
-    };
+    const sampled = await this._sampleSurface(lonDeg, latDeg);
+    const modelOffset = Math.max(0, Number(this.modelSource?.offsetY) || 0);
+    this.surfaceClearance = GROUND_CLEARANCE_METERS + modelOffset;
+    this.lat = Cesium.Math.toRadians(latDeg);
+    this.lon = Cesium.Math.toRadians(lonDeg);
+    this.terrainHeight = sampled.terrainHeight;
+    this.surfaceHeight = sampled.surfaceHeight;
+    this.position.set(0, this.surfaceHeight + this.surfaceClearance, 0);
+    this.velocity.set(0, 0, 0);
+    this.prevVelocity.set(0, 0, 0);
+    this.throttle = 0;
+    this.boostFuel = BOOST.MAX_FUEL;
+    this.boostCooldown = 0;
+    this.boostActive = false;
+    this.grounded = true;
+    this.gearDeployed = true;
+    this.warning = 'Holding short';
+    this.launchLabel = spawn?.launchLabel ?? 'Earth ground start';
+    this.landed = null;
+    this.gForce = 1;
+    this.controlState.pitch = 0;
+    this.controlState.roll = 0;
+    this.controlState.yaw = 0;
+    this.quaternion.identity();
+    this.quaternion.setFromEuler(
+      new THREE.Euler(0, -THREE.MathUtils.degToRad(Number(spawn?.headingDeg) || 0), 0, 'YXZ')
+    );
 
     this._ensurePlaneEntity(Cesium);
     this._syncAircraftEntity(Cesium);
@@ -138,9 +165,9 @@ export class RealEarthFlightController {
     this._unbindInputs();
     this._setCameraControls(true);
     this._removePlaneEntity();
-    this.state = null;
     this.aircraft = null;
     this.modelSource = null;
+    this._cameraDestination = null;
     this.callbacks.onFlightState?.(null);
   }
 
@@ -149,19 +176,41 @@ export class RealEarthFlightController {
   }
 
   getState() {
-    if (!this.state) return null;
-    const Cesium = globalThis.Cesium;
+    if (!this.aircraft) return null;
+    const orientation = this._getOrientationState();
     return {
-      ...this.state,
-      latitude: Cesium ? Cesium.Math.toDegrees(this.state.lat) : null,
-      longitude: Cesium ? Cesium.Math.toDegrees(this.state.lon) : null,
-      headingDeg: Cesium ? Cesium.Math.toDegrees(this.state.heading) : 0,
-      pitchDeg: Cesium ? Cesium.Math.toDegrees(this.state.pitch) : 0,
-      rollDeg: Cesium ? Cesium.Math.toDegrees(this.state.roll) : 0,
-      throttlePercent: Math.round((this.state.throttle ?? 0) * 100),
-      altitudeFeet: Math.round((this.state.altitudeMeters ?? 0) * 3.28084),
-      speedKnots: Math.round((this.state.speedMps ?? 0) * 1.94384),
-      onGround: !!this.state.grounded,
+      aircraftName: this.aircraft.name,
+      throttle: this.throttle,
+      throttlePercent: Math.round(this.throttle * 100),
+      boostFuel: this.boostFuel,
+      boostActive: this.boostActive,
+      position: this.position.clone(),
+      velocity: this.velocity.clone(),
+      quaternion: this.quaternion.clone(),
+      speed: this.velocity.length(),
+      speedKnots: Math.round(this.velocity.length() * 1.94384),
+      altitude: this.position.y,
+      altitudeMeters: this.position.y,
+      altitudeFeet: Math.round(this.position.y * 3.28084),
+      verticalSpeed: this.velocity.y,
+      heading: orientation.headingDeg,
+      headingDeg: orientation.headingDeg,
+      pitchDeg: orientation.pitchDeg,
+      rollDeg: orientation.rollDeg,
+      gForce: this.gForce,
+      isStalling: this.velocity.length() < this.aircraft.stallSpeed * 1.05 && !this.grounded,
+      maxSpeed: this.aircraft.maxSpeed,
+      stallSpeed: this.aircraft.stallSpeed,
+      gearDeployed: this.gearDeployed,
+      gearProgress: this.gearDeployed ? 1 : 0,
+      grounded: this.grounded,
+      onGround: this.grounded,
+      landed: this.landed,
+      nearGround: this.nearGround,
+      launchLabel: this.launchLabel,
+      warning: this.warning,
+      latitude: THREE.MathUtils.radToDeg(this.lat),
+      longitude: THREE.MathUtils.radToDeg(this.lon),
     };
   }
 
@@ -207,40 +256,8 @@ export class RealEarthFlightController {
     controller.enableLook = enabled;
   }
 
-  _ensurePlaneEntity(Cesium) {
-    if (!this.viewer || this.planeEntity) return;
-    const uri = this.modelSource?.file || '/assets/Models/private_jet.glb';
-    this.planeEntity = this.viewer.entities.add({
-      id: `earth-flight-${Date.now()}`,
-      position: Cesium.Cartesian3.fromRadians(this.state.lon, this.state.lat, this.state.altitudeMeters),
-      orientation: Cesium.Transforms.headingPitchRollQuaternion(
-        Cesium.Cartesian3.fromRadians(this.state.lon, this.state.lat, this.state.altitudeMeters),
-        new Cesium.HeadingPitchRoll(
-          this.state.heading + this.state.modelYawOffset,
-          this.state.pitch,
-          this.state.roll
-        )
-      ),
-      model: {
-        uri,
-        minimumPixelSize: Math.max(54, (Number(this.modelSource?.targetLength) || 16) * 4.4),
-        maximumScale: 20000,
-        scale: 1,
-        silhouetteColor: Cesium.Color.fromCssColorString('#8fd6ff'),
-        silhouetteSize: 0.18,
-      },
-    });
-  }
-
-  _removePlaneEntity() {
-    if (this.viewer && this.planeEntity) {
-      this.viewer.entities.remove(this.planeEntity);
-    }
-    this.planeEntity = null;
-  }
-
   _tick(now) {
-    if (!this.active || !this.state) return;
+    if (!this.active || !this.aircraft) return;
     const dt = Math.min(0.05, Math.max(0.001, (now - this.lastTime) / 1000));
     this.lastTime = now;
 
@@ -254,166 +271,207 @@ export class RealEarthFlightController {
 
   _updateFlight(dt) {
     const Cesium = globalThis.Cesium;
-    if (!Cesium || !this.state || !this.aircraft) return;
+    const speed = this.velocity.length();
+    this.prevVelocity.copy(this.velocity);
 
-    const state = this.state;
-    const previous = {
-      lon: state.lon,
-      lat: state.lat,
-      altitudeMeters: state.altitudeMeters,
-      terrainHeight: state.terrainHeight,
-      surfaceHeight: state.surfaceHeight,
-    };
+    this._updateThrottleAndBoost(dt);
 
     const pitchInput = (this._isPressed('pitchUp') ? 1 : 0) - (this._isPressed('pitchDown') ? 1 : 0);
     const rollInput = (this._isPressed('rollRight') ? 1 : 0) - (this._isPressed('rollLeft') ? 1 : 0);
     const yawInput = (this._isPressed('yawRight') ? 1 : 0) - (this._isPressed('yawLeft') ? 1 : 0);
-    const throttleInput = (this._isPressed('throttleUp') ? 1 : 0) - (this._isPressed('throttleDown') ? 1 : 0);
     const braking = this._isPressed('brake');
-    const boosting = this._isPressed('boost');
 
-    state.throttle = clamp(state.throttle + throttleInput * 0.48 * dt, 0, 1);
-    state.gearDeployed = state.grounded || (state.altitudeMeters - state.surfaceHeight) < 180;
+    const stats = this.aircraft.stats ?? { agility: 3 };
+    const authority = clamp(speed / Math.max(this.aircraft.stallSpeed * 0.9, 1), 0, 1);
+    const speedRatio = clamp(speed / Math.max(this.aircraft.maxSpeed, 1), 0, 1);
+    const pitchResponse = 1 - Math.exp(-dt * (2.8 + stats.agility * 0.72));
+    const lateralResponse = 1 - Math.exp(-dt * (5.2 + stats.agility * 1.25));
+    const commandPitch = Math.sign(pitchInput) * Math.pow(Math.abs(pitchInput), 1.22) * 0.56;
+    const commandRoll = Math.sign(rollInput) * Math.pow(Math.abs(rollInput), 1.12);
+    const commandYaw = Math.sign(yawInput) * Math.pow(Math.abs(yawInput), 1.08) * 0.88;
 
-    if (state.grounded) {
-      this._updateGroundFlight(dt, { pitchInput, rollInput, yawInput, braking, boosting });
-    } else {
-      this._updateAirFlight(dt, { pitchInput, rollInput, yawInput, braking, boosting });
+    this.controlState.pitch = THREE.MathUtils.lerp(this.controlState.pitch, commandPitch, pitchResponse);
+    this.controlState.roll = THREE.MathUtils.lerp(this.controlState.roll, commandRoll, lateralResponse);
+    this.controlState.yaw = THREE.MathUtils.lerp(this.controlState.yaw, commandYaw, lateralResponse);
+
+    _rotationEuler.setFromQuaternion(this.quaternion, 'YXZ');
+    const bankAngle = -_rotationEuler.z;
+    const coordinatedTurn = Math.sin(bankAngle) * clamp(speed / Math.max(this.aircraft.stallSpeed, 1), 0, 3.2) * 0.26;
+    const rollRate = this.aircraft.rollRate * this.controlState.roll * dt * authority;
+    const pitchAuthority = authority * THREE.MathUtils.lerp(0.58, 0.34, speedRatio);
+    const pitchRate = this.aircraft.pitchRate * this.controlState.pitch * dt * pitchAuthority;
+    const yawRate = (this.aircraft.yawRate * this.controlState.yaw + coordinatedTurn) * dt * authority;
+
+    const dq = new THREE.Quaternion().setFromEuler(new THREE.Euler(-pitchRate, -yawRate, -rollRate, 'YXZ'));
+    this.quaternion.multiply(dq).normalize();
+
+    if (Math.abs(rollInput) < 0.05 && speed > this.aircraft.stallSpeed * 0.5) {
+      _rotationEuler.setFromQuaternion(this.quaternion, 'YXZ');
+      _rotationEuler.z *= Math.pow(0.97, dt * 60);
+      this.quaternion.setFromEuler(_rotationEuler);
     }
 
-    this._advancePosition(dt);
+    const forces = FlightPhysics.calculate(
+      {
+        position: this.position,
+        velocity: this.velocity,
+        quaternion: this.quaternion,
+        throttle: this.throttle,
+        brake: braking,
+      },
+      this.aircraft
+    );
 
-    const surface = this._sampleSurfaceSync(Cesium.Math.toDegrees(state.lon), Cesium.Math.toDegrees(state.lat));
-    state.terrainHeight = surface.terrainHeight;
-    state.surfaceHeight = surface.surfaceHeight;
+    if (this.boostActive) {
+      _forward.set(0, 0, -1).applyQuaternion(this.quaternion);
+      forces.addScaledVector(_forward, this.aircraft.maxThrust * this.throttle * (BOOST.THRUST_MULTIPLIER - 1));
+    }
 
-    const obstacleCollision = surface.obstacleHeight > 12 && state.altitudeMeters < surface.surfaceHeight + FLIGHT_CLEARANCE_METERS;
-    if (obstacleCollision) {
-      state.lon = previous.lon;
-      state.lat = previous.lat;
-      state.altitudeMeters = previous.altitudeMeters;
-      state.terrainHeight = previous.terrainHeight;
-      state.surfaceHeight = previous.surfaceHeight;
-      state.speedMps = Math.min(state.speedMps, 10);
-      state.verticalSpeed = 0;
-      state.warning = 'Obstacle collision';
+    const accel = forces.divideScalar(this.aircraft.mass);
+    this.gForce = accel.length() / PHYSICS.GRAVITY;
+
+    this.velocity.addScaledVector(accel, dt);
+    this._alignVelocityToForward(dt, braking);
+
+    const maxSpeed = this.boostActive ? this.aircraft.maxSpeed * 1.5 : this.aircraft.maxSpeed;
+    const nextSpeed = this.velocity.length();
+    if (nextSpeed > maxSpeed) {
+      this.velocity.multiplyScalar(maxSpeed / nextSpeed);
+    }
+
+    this._advanceOnGlobe(dt);
+    this.position.y += this.velocity.y * dt;
+
+    const surface = this._sampleSurfaceSync(THREE.MathUtils.radToDeg(this.lon), THREE.MathUtils.radToDeg(this.lat));
+    this.terrainHeight = surface.terrainHeight;
+    this.surfaceHeight = surface.surfaceHeight;
+    const clearance = this.position.y - this.surfaceHeight;
+    this.nearGround = clearance < 30;
+    this.gearDeployed = this.grounded || clearance < 220 || speed < this.aircraft.stallSpeed * 1.5;
+
+    const obstacleCollision = surface.obstacleHeight > 4 && this.position.y < this.surfaceHeight + FLIGHT_CLEARANCE_METERS;
+    if (!this.grounded && obstacleCollision) {
+      this.position.y = this.surfaceHeight + FLIGHT_CLEARANCE_METERS;
+      this.velocity.multiplyScalar(0.16);
+      this.velocity.y = 0;
+      this.warning = 'Obstacle strike';
       this._signalImpact('Obstacle impact');
-      state.grounded = state.altitudeMeters <= state.surfaceHeight + GROUND_CLEARANCE_METERS + 1;
     }
 
-    const terrainClearance = state.grounded ? GROUND_CLEARANCE_METERS : FLIGHT_CLEARANCE_METERS;
-    const minAltitude = state.surfaceHeight + terrainClearance;
-    if (state.altitudeMeters <= minAltitude) {
-      const impactHard = !state.grounded && (Math.abs(state.verticalSpeed) > 6 || state.speedMps > state.stallSpeed * 1.35 || Math.abs(state.roll) > Cesium.Math.toRadians(22));
-      if (impactHard) {
-        state.warning = 'Hard landing';
-        this._signalImpact('Hard landing on terrain');
+    const groundLevel = this.surfaceHeight + this.surfaceClearance;
+    if (this.position.y <= groundLevel) {
+      const impactSpeed = Math.abs(this.prevVelocity.y);
+      this.position.y = groundLevel;
+      this.grounded = true;
+      this.velocity.y = 0;
+
+      if (impactSpeed > 8) {
+        this.landed = 'crash';
+        this.velocity.multiplyScalar(0.2);
+        this.warning = 'Crash landing';
+        this._signalImpact('Hard impact');
+      } else if (impactSpeed > 2.4) {
+        this.landed = 'hard';
+        this.velocity.multiplyScalar(0.84);
+        this.warning = 'Hard landing';
+      } else {
+        this.landed = 'smooth';
+        this.warning = braking ? 'Braking on rollout' : speed > 3 ? 'Rolling runway' : 'Holding short';
       }
-      state.altitudeMeters = minAltitude;
-      state.grounded = true;
-      state.verticalSpeed = 0;
-      state.pitch = damp(state.pitch, 0, 5.4, dt);
-      state.roll = damp(state.roll, 0, 5.8, dt);
-      state.speedMps *= braking ? 0.92 : 0.985;
-      if (!impactHard && state.speedMps < 4) {
-        state.warning = 'On runway';
+
+      if (braking) {
+        const horizontalSpeed = Math.hypot(this.velocity.x, this.velocity.z);
+        const brakingAccel = PHYSICS.GRAVITY * 0.74 + Math.max(2, this.aircraft.stallSpeed * 0.08);
+        const nextHorizontal = Math.max(0, horizontalSpeed - brakingAccel * dt);
+        const scale = horizontalSpeed > 0.0001 ? nextHorizontal / horizontalSpeed : 0;
+        this.velocity.x *= scale;
+        this.velocity.z *= scale;
+      }
+
+      if (this.throttle < 0.04 && !this.boostActive && Math.hypot(this.velocity.x, this.velocity.z) < Math.max(0.12, this.aircraft.stallSpeed * 0.004)) {
+        this.velocity.set(0, 0, 0);
       }
     } else {
-      state.grounded = false;
+      this.grounded = false;
+      this.landed = null;
+      if (speed < this.aircraft.stallSpeed * 0.96) {
+        this.warning = 'Approaching stall';
+      } else if (braking) {
+        this.warning = 'Air brake';
+      } else if (this.boostActive) {
+        this.warning = 'Boost engaged';
+      } else {
+        this.warning = 'In flight';
+      }
     }
   }
 
-  _updateGroundFlight(dt, { pitchInput, rollInput, yawInput, braking, boosting }) {
-    const Cesium = globalThis.Cesium;
-    const state = this.state;
-    const aircraft = this.aircraft;
+  _updateThrottleAndBoost(dt) {
+    const throttleInput = (this._isPressed('throttleUp') ? 1 : 0) - (this._isPressed('throttleDown') ? 1 : 0);
+    this.throttle = clamp(this.throttle + throttleInput * dt * 0.5, 0, 1);
 
-    const thrustAccel = 2.8 + state.throttle * Math.max(4.5, aircraft.maxThrust / Math.max(aircraft.mass, 1) * 0.085);
-    const boostAccel = boosting ? Math.max(2.5, aircraft.maxSpeed * 0.018) : 0;
-    const rollingDrag = 1.2 + state.speedMps * 0.038 + (braking ? 12.5 : 0);
-    state.speedMps += (thrustAccel + boostAccel - rollingDrag) * dt;
-    if (state.throttle < 0.04 && !boosting) state.speedMps -= 1.2 * dt;
-    state.speedMps = clamp(state.speedMps, 0, Math.max(34, Math.min(aircraft.maxSpeed * 0.46, 138)));
-
-    const steerRate = Cesium.Math.toRadians(12 + clamp(state.speedMps, 0, 40) * 0.28);
-    state.heading = wrapAngle(state.heading + (yawInput + rollInput * 0.24) * steerRate * dt);
-    state.pitch = damp(
-      state.pitch,
-      pitchInput > 0 ? Cesium.Math.toRadians(6.5) : pitchInput < 0 ? Cesium.Math.toRadians(-3) : 0,
-      3.1,
-      dt
-    );
-    state.roll = damp(state.roll, Cesium.Math.toRadians(rollInput * 5), 3.6, dt);
-    state.verticalSpeed = 0;
-
-    const takeoffWindow = clamp((state.speedMps - aircraft.stallSpeed * 0.92) / Math.max(10, aircraft.stallSpeed * 0.48), 0, 1);
-    if (pitchInput > 0 && takeoffWindow > 0.12 && !braking) {
-      state.grounded = false;
-      state.verticalSpeed = Math.max(2, takeoffWindow * (8 + state.speedMps * 0.06));
-      state.warning = 'Rotate';
+    const wantsBoost = this._isPressed('boost');
+    if (wantsBoost && this.boostFuel > 0 && this.boostCooldown <= 0) {
+      this.boostActive = true;
+      this.boostFuel = Math.max(0, this.boostFuel - BOOST.DRAIN_RATE * dt);
+      if (this.boostFuel <= 0) {
+        this.boostCooldown = BOOST.RECHARGE_DELAY;
+      }
     } else {
-      state.warning = braking
-        ? 'Braking on rollout'
-        : state.speedMps > 4
-          ? 'Taxi / takeoff roll'
-          : 'Holding short';
+      this.boostActive = false;
+      if (this.boostCooldown > 0) {
+        this.boostCooldown = Math.max(0, this.boostCooldown - dt);
+      } else {
+        this.boostFuel = Math.min(BOOST.MAX_FUEL, this.boostFuel + BOOST.RECHARGE_RATE * dt);
+      }
     }
   }
 
-  _updateAirFlight(dt, { pitchInput, rollInput, yawInput, braking, boosting }) {
-    const Cesium = globalThis.Cesium;
-    const state = this.state;
-    const aircraft = this.aircraft;
-
-    const maxCruise = Math.max(90, aircraft.maxSpeed * (boosting ? 1.16 : 1));
-    const throttleTarget = Cesium.Math.lerp(
-      Math.max(aircraft.stallSpeed * 0.92, 34),
-      maxCruise,
-      state.throttle
-    );
-    const drag = state.speedMps * 0.08 + Math.abs(state.roll) * 1.4 + (braking ? 14.5 : 0);
-    const noseUpPenalty = Math.max(0, Math.sin(Math.max(0, state.pitch))) * 8.5;
-    state.speedMps += ((throttleTarget - state.speedMps) * 0.72 - drag - noseUpPenalty) * dt;
-    state.speedMps = Math.max(aircraft.stallSpeed * 0.52, state.speedMps);
-
-    const targetRoll = Cesium.Math.toRadians(rollInput * 62);
-    state.roll = damp(state.roll, targetRoll, 3.25, dt);
-
-    const pitchAuthority = Cesium.Math.toRadians((aircraft.pitchRate || 1.2) * 17);
-    state.pitch += pitchInput * pitchAuthority * dt;
-    if (!pitchInput) {
-      const trimPitch = Cesium.Math.toRadians(clamp((state.speedMps - aircraft.stallSpeed) / Math.max(aircraft.maxSpeed * 0.12, 25), -2, 4));
-      state.pitch = damp(state.pitch, trimPitch, 0.5, dt);
-    }
-    state.pitch = clamp(state.pitch, Cesium.Math.toRadians(-24), Cesium.Math.toRadians(34));
-
-    const yawRate = Cesium.Math.toRadians((aircraft.yawRate || 0.8) * 20);
-    const bankTurnRate = Math.sin(state.roll) * clamp(state.speedMps / Math.max(aircraft.maxSpeed * 0.42, 60), 0, 2.2) * 1.08;
-    state.heading = wrapAngle(state.heading + (yawInput * yawRate + bankTurnRate) * dt);
-
-    const liftFactor = clamp((state.speedMps - aircraft.stallSpeed) / Math.max(aircraft.maxSpeed * 0.34, 45), -0.6, 1.3);
-    state.verticalSpeed = Math.sin(state.pitch) * state.speedMps + liftFactor * (11 + state.speedMps * 0.02) - 9.4;
-    if (state.speedMps < aircraft.stallSpeed * 0.96) {
-      state.verticalSpeed -= 14 * (1 - clamp(liftFactor, 0, 1));
-      state.warning = 'Stall margin low';
-    } else {
-      state.warning = braking
-        ? 'Air brake'
-        : boosting
-          ? 'Boost engaged'
-          : 'Climb / cruise';
-    }
-    state.altitudeMeters += state.verticalSpeed * dt;
+  _advanceOnGlobe(dt) {
+    const east = this.velocity.x * dt;
+    const north = -this.velocity.z * dt;
+    const radius = EARTH_RADIUS_METERS + this.position.y;
+    this.lat = clamp(this.lat + north / radius, -Math.PI / 2 + 0.0015, Math.PI / 2 - 0.0015);
+    this.lon = wrapLongitude(this.lon + east / Math.max(1, radius * Math.cos(this.lat)));
   }
 
-  _advancePosition(dt) {
-    const state = this.state;
-    const horizontalDistance = Math.max(0, Math.cos(state.pitch) * state.speedMps * dt);
-    const north = Math.cos(state.heading) * horizontalDistance;
-    const east = Math.sin(state.heading) * horizontalDistance;
-    const radius = EARTH_RADIUS_METERS + Math.max(0, state.altitudeMeters);
-    state.lat = clamp(state.lat + north / radius, -Math.PI / 2 + 0.0015, Math.PI / 2 - 0.0015);
-    state.lon = wrapLongitude(state.lon + east / Math.max(1, radius * Math.cos(state.lat)));
+  _alignVelocityToForward(dt, braking) {
+    const speed = this.velocity.length();
+    if (speed < 0.001) return;
+
+    if (this.grounded && (braking || this.throttle < 0.06)) {
+      const damping = Math.exp(-dt * (braking ? 4.8 : 3.4));
+      this.velocity.x *= damping;
+      this.velocity.z *= damping;
+      return;
+    }
+
+    _forward.set(0, 0, -1).applyQuaternion(this.quaternion).normalize();
+    const minSpeed = Math.max(this.aircraft.stallSpeed * 0.72, 8);
+    const targetSpeed = Math.max(speed, minSpeed);
+    const agility = this.aircraft.stats?.agility ?? 3;
+    const alignmentFactor = 1 - Math.exp(-dt * (18 + agility * 2.8));
+
+    _velocityDir.copy(this.velocity).normalize();
+    _velocityDir.lerp(_forward, alignmentFactor).normalize();
+    _desiredVelocity.copy(_velocityDir).multiplyScalar(targetSpeed);
+    this.velocity.copy(_desiredVelocity);
+  }
+
+  _getOrientationState() {
+    _forward.set(0, 0, -1).applyQuaternion(this.quaternion).normalize();
+    _rotationEuler.setFromQuaternion(this.quaternion, 'YXZ');
+    const heading = Math.atan2(_forward.x, -_forward.z);
+    const pitch = Math.asin(clamp(_forward.y, -1, 1));
+    const roll = -_rotationEuler.z;
+    return {
+      heading,
+      headingDeg: (THREE.MathUtils.radToDeg(heading) % 360 + 360) % 360,
+      pitch,
+      pitchDeg: THREE.MathUtils.radToDeg(pitch),
+      roll,
+      rollDeg: THREE.MathUtils.radToDeg(roll),
+    };
   }
 
   async _sampleSurface(lonDeg, latDeg) {
@@ -436,9 +494,10 @@ export class RealEarthFlightController {
         const sceneHeight = Number(this.viewer.scene.sampleHeight(cartographic, this._collisionExclusions()));
         if (Number.isFinite(sceneHeight)) surfaceHeight = Math.max(surfaceHeight, sceneHeight);
       } catch {
-        // Ignore scene height failures and keep terrain fallback.
+        // Ignore sample failures.
       }
     }
+
     return {
       terrainHeight,
       surfaceHeight,
@@ -450,7 +509,7 @@ export class RealEarthFlightController {
     const Cesium = globalThis.Cesium;
     const cartographic = Cesium.Cartographic.fromDegrees(Number(lonDeg), Number(latDeg), 0);
     let terrainHeight = Number(this.viewer.scene.globe.getHeight(cartographic));
-    if (!Number.isFinite(terrainHeight)) terrainHeight = this.state?.terrainHeight ?? 0;
+    if (!Number.isFinite(terrainHeight)) terrainHeight = this.terrainHeight || 0;
 
     let surfaceHeight = terrainHeight;
     if (this.viewer.scene.sampleHeightSupported && typeof this.viewer.scene.sampleHeight === 'function') {
@@ -458,9 +517,10 @@ export class RealEarthFlightController {
         const sceneHeight = Number(this.viewer.scene.sampleHeight(cartographic, this._collisionExclusions()));
         if (Number.isFinite(sceneHeight)) surfaceHeight = Math.max(surfaceHeight, sceneHeight);
       } catch {
-        // Ignore scene height failures and keep terrain fallback.
+        // Ignore sample failures.
       }
     }
+
     return {
       terrainHeight,
       surfaceHeight,
@@ -469,52 +529,76 @@ export class RealEarthFlightController {
   }
 
   _collisionExclusions() {
-    const excluded = [];
-    if (this.planeEntity) excluded.push(this.planeEntity);
-    return excluded;
+    return this.planeEntity ? [this.planeEntity] : [];
+  }
+
+  _ensurePlaneEntity(Cesium) {
+    if (!this.viewer || this.planeEntity) return;
+    const uri = this.modelSource?.file || '/assets/Models/private_jet.glb';
+    const minSize = Math.max(40, (Number(this.modelSource?.targetLength) || 14) * 3.2);
+    this.planeEntity = this.viewer.entities.add({
+      id: `earth-flight-${Date.now()}`,
+      position: Cesium.Cartesian3.fromRadians(this.lon, this.lat, this.position.y),
+      model: {
+        uri,
+        minimumPixelSize: minSize,
+        maximumScale: 1200,
+        scale: 1,
+      },
+    });
+  }
+
+  _removePlaneEntity() {
+    if (this.viewer && this.planeEntity) {
+      this.viewer.entities.remove(this.planeEntity);
+    }
+    this.planeEntity = null;
   }
 
   _syncAircraftEntity(Cesium) {
-    if (!this.planeEntity || !this.state) return;
-    const position = Cesium.Cartesian3.fromRadians(
-      this.state.lon,
-      this.state.lat,
-      this.state.altitudeMeters
-    );
-    const hpr = new Cesium.HeadingPitchRoll(
-      this.state.heading + this.state.modelYawOffset,
-      this.state.pitch,
-      this.state.roll
-    );
+    if (!this.planeEntity) return;
+    const position = Cesium.Cartesian3.fromRadians(this.lon, this.lat, this.position.y);
+    const orientation = this._getOrientationState();
+    const yawOffset = Cesium.Math.toRadians(Number(this.modelSource?.rotationY) || 0);
     this.planeEntity.position = position;
-    this.planeEntity.orientation = Cesium.Transforms.headingPitchRollQuaternion(position, hpr);
+    this.planeEntity.orientation = Cesium.Transforms.headingPitchRollQuaternion(
+      position,
+      new Cesium.HeadingPitchRoll(
+        orientation.heading + yawOffset,
+        orientation.pitch,
+        orientation.roll
+      )
+    );
   }
 
   _applyCamera() {
     const Cesium = globalThis.Cesium;
-    if (!Cesium || !this.viewer || !this.state) return;
+    if (!Cesium || !this.viewer || !this.aircraft) return;
 
-    const position = Cesium.Cartesian3.fromRadians(
-      this.state.lon,
-      this.state.lat,
-      this.state.altitudeMeters
-    );
+    const position = Cesium.Cartesian3.fromRadians(this.lon, this.lat, this.position.y);
+    const orientation = this._getOrientationState();
     const enu = Cesium.Transforms.eastNorthUpToFixedFrame(position);
-    const chaseDistance = clamp((Number(this.modelSource?.targetLength) || 16) * 2.8, 28, 120);
-    const chaseHeight = clamp((Number(this.modelSource?.targetLength) || 16) * 0.75, 8, 34);
-    const cameraOffsetLocal = new Cesium.Cartesian3(
-      -Math.sin(this.state.heading) * chaseDistance,
-      -Math.cos(this.state.heading) * chaseDistance,
-      chaseHeight + clamp(this.state.speedMps * 0.015, 0, 18)
+    const speed = this.velocity.length();
+    const chaseDistance = clamp((Number(this.modelSource?.targetLength) || 16) * 2.1, 18, 72);
+    const chaseHeight = clamp((Number(this.modelSource?.targetLength) || 16) * 0.34, 4.5, 14) + clamp(speed * 0.01, 0, 10);
+    const localOffset = new Cesium.Cartesian3(
+      -Math.sin(orientation.heading) * chaseDistance,
+      -Math.cos(orientation.heading) * chaseDistance,
+      chaseHeight
     );
-    const cameraDestination = Cesium.Matrix4.multiplyByPoint(enu, cameraOffsetLocal, new Cesium.Cartesian3());
+    const targetDestination = Cesium.Matrix4.multiplyByPoint(enu, localOffset, new Cesium.Cartesian3());
+    if (!this._cameraDestination) {
+      this._cameraDestination = Cesium.Cartesian3.clone(targetDestination);
+    } else {
+      Cesium.Cartesian3.lerp(this._cameraDestination, targetDestination, 0.16, this._cameraDestination);
+    }
 
     this.viewer.camera.setView({
-      destination: cameraDestination,
+      destination: this._cameraDestination,
       orientation: {
-        heading: this.state.heading,
-        pitch: Cesium.Math.toRadians(-12) + this.state.pitch * 0.2,
-        roll: this.state.roll * 0.08,
+        heading: orientation.heading,
+        pitch: Cesium.Math.toRadians(-9) + orientation.pitch * 0.22,
+        roll: orientation.roll * 0.08,
       },
     });
     this.viewer.scene.requestRender?.();

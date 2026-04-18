@@ -92,11 +92,15 @@ export class RealEarthBeta {
     this.viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#1b3145');
     this.viewer.scene.globe.enableLighting = true;
     this.viewer.scene.globe.showGroundAtmosphere = true;
-    this.viewer.scene.globe.depthTestAgainstTerrain = false;
-    this.viewer.scene.globe.maximumScreenSpaceError = 4;
+    this.viewer.scene.globe.depthTestAgainstTerrain = true;
+    this.viewer.scene.globe.maximumScreenSpaceError = 2.2;
+    this.viewer.scene.globe.preloadAncestors = true;
+    this.viewer.scene.globe.preloadSiblings = true;
     this.viewer.scene.skyAtmosphere.show = true;
     this.viewer.scene.fog.enabled = true;
     this.viewer.scene.highDynamicRange = true;
+    this.viewer.shadows = true;
+    this.viewer.terrainShadows = Cesium.ShadowMode.ENABLED;
     this.viewer.clock.multiplier = 200;
     this._setDiagnostic('viewer', 'ok', 'Cesium viewer initialized.');
 
@@ -143,13 +147,14 @@ export class RealEarthBeta {
     try {
       const provider = new Cesium.UrlTemplateImageryProvider({
         url: `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/256/{z}/{x}/{y}?access_token=${token}`,
-        credit: '© Mapbox © OpenStreetMap',
+        credit: 'Mapbox / OpenStreetMap',
         maximumLevel: 19,
       });
       this.mapboxOverlay = this.viewer.imageryLayers.addImageryProvider(provider);
-      this.mapboxOverlay.alpha = 0.92;
-      this.mapboxOverlay.brightness = 1.04;
-      this.mapboxOverlay.saturation = 0.96;
+      this.mapboxOverlay.alpha = 0.82;
+      this.mapboxOverlay.brightness = 1.03;
+      this.mapboxOverlay.contrast = 1.06;
+      this.mapboxOverlay.saturation = 0.9;
       this._setDiagnostic('mapbox-overlay', 'ok', 'Mapbox satellite overlay requested.');
     } catch (error) {
       this._setDiagnostic('mapbox-overlay', 'error', `Mapbox overlay failed: ${error?.message || error}`);
