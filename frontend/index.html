@@ -1243,6 +1243,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   };
   let worldStreamingConfig = null;
   let realEarthDiagnostics = [];
+  let realEarthOpening = false;
   const REAL_EARTH_JUMPS = [
     { id: 'sfo', label: 'SFO', name: 'San Francisco Intl', region: 'California, USA', lon: -122.3790, lat: 37.6213, altitude: 12000 },
     { id: 'lax', label: 'LAX', name: 'Los Angeles Intl', region: 'California, USA', lon: -118.4085, lat: 33.9416, altitude: 13000 },
@@ -1689,6 +1690,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       statusEl.textContent = worldStreamingStatus.loading
         ? 'Checking provider readiness...'
         : status.note;
+      if (realEarthOpening) {
+        statusEl.textContent = 'Opening streamed globe...';
+      }
     }
     if (providersEl) {
       providersEl.innerHTML = renderWorldStreamingProviders(status);
@@ -2800,12 +2804,14 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     },
 
     async showRealEarthBeta() {
+      if (realEarthOpening) return;
       if (!authState?.token) {
         this.showAuth();
         return;
       }
+      realEarthOpening = true;
       try {
-        const status = await loadWorldStreamingStatus(false);
+        const status = await loadWorldStreamingStatus(true);
         realEarthDiagnostics = [];
         renderRealEarthPanel();
         if (!status.ready) {
@@ -2815,6 +2821,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         }
         const config = await loadWorldStreamingConfig(true);
         hideAll();
+        document.getElementById('world-streaming-modal').style.display = 'none';
         document.getElementById('screen-real-earth').style.display = 'flex';
         document.getElementById('stars-canvas').style.display = 'none';
         updateRealEarthLocationReadout();
@@ -2859,10 +2866,13 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         }
         this.showMenu();
         toast(error?.message || 'Real Earth Beta could not start', 2600);
+      } finally {
+        realEarthOpening = false;
       }
     },
 
     closeRealEarthBeta() {
+      realEarthOpening = false;
       if (earthBeta) {
         earthBeta.destroy();
         earthBeta = null;
@@ -2894,6 +2904,19 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           return;
         }
         toast(`Flying to ${query}`, 1600);
+        const camera = earthBeta.getCameraStatus();
+        if (Number.isFinite(camera.latitude) && Number.isFinite(camera.longitude)) {
+          realEarthSelection = {
+            id: `search-${Date.now()}`,
+            label: query.slice(0, 8).toUpperCase(),
+            name: query,
+            region: 'Search result',
+            lon: camera.longitude,
+            lat: camera.latitude,
+            altitude: Math.max(9000, camera.altitudeMeters || 14000),
+          };
+          renderRealEarthPanel();
+        }
       } catch (error) {
         toast(error?.message || 'Search failed', 2200);
       }
@@ -4118,6 +4141,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
   // ── Helpers ──────────────────────────────────────────────
   function hideAll() {
+    realEarthOpening = false;
     ['screen-auth','screen-onboarding','screen-menu','screen-select','screen-leaderboard','screen-settings','screen-career','screen-hangar','screen-real-earth','screen-game'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
@@ -4288,7 +4312,6 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     });
 
     document.getElementById('menu-new-mission')?.addEventListener('click', () => App.showSelect());
-    document.getElementById('menu-real-earth')?.addEventListener('click', () => App.showRealEarthBeta());
     document.getElementById('menu-flight-school')?.addEventListener('click', () => App.openFlightSchool());
     document.getElementById('menu-repair-hangar')?.addEventListener('click', () => App.showHangar());
     document.getElementById('menu-leaderboard')?.addEventListener('click', () => App.showLeaderboard());

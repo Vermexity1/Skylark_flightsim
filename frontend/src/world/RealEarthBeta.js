@@ -9,6 +9,7 @@ export class RealEarthBeta {
     this.mapboxOverlay = null;
     this.renderErrorListener = null;
     this.diagnostics = [];
+    this.buildingsTimer = null;
   }
 
   _setDiagnostic(id, status, message) {
@@ -80,14 +81,19 @@ export class RealEarthBeta {
       infoBox: false,
       selectionIndicator: false,
       scene3DOnly: true,
+      requestRenderMode: true,
+      maximumRenderTimeChange: Infinity,
       shouldAnimate: true,
     });
 
+    const deviceScale = Math.max(1, Number(globalThis.devicePixelRatio) || 1);
+    this.viewer.resolutionScale = Math.min(1, 1.3 / deviceScale);
     this.viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#08111c');
     this.viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#1b3145');
     this.viewer.scene.globe.enableLighting = true;
     this.viewer.scene.globe.showGroundAtmosphere = true;
     this.viewer.scene.globe.depthTestAgainstTerrain = false;
+    this.viewer.scene.globe.maximumScreenSpaceError = 4;
     this.viewer.scene.skyAtmosphere.show = true;
     this.viewer.scene.fog.enabled = true;
     this.viewer.scene.highDynamicRange = true;
@@ -105,12 +111,9 @@ export class RealEarthBeta {
       this._setDiagnostic('mapbox-overlay', 'warn', 'Mapbox token missing. Running with Cesium world imagery only.');
     }
 
-    try {
-      this.buildingsTileset = await Cesium.createOsmBuildingsAsync();
-      this.viewer.scene.primitives.add(this.buildingsTileset);
-    } catch (error) {
-      console.warn('[RealEarthBeta] OSM buildings failed to load', error);
-    }
+    this.buildingsTimer = globalThis.setTimeout(() => {
+      this._loadBuildings(Cesium);
+    }, 450);
 
     this.cameraListener = () => {
       this.callbacks.onCameraChanged?.(this.getCameraStatus());
@@ -120,6 +123,20 @@ export class RealEarthBeta {
     this.flyToDefaultView();
     await this.runDiagnostics();
     this.callbacks.onReady?.(this.getCameraStatus());
+  }
+
+  async _loadBuildings(Cesium) {
+    if (!this.viewer) return;
+    try {
+      this.buildingsTileset = await Cesium.createOsmBuildingsAsync();
+      if (!this.viewer) return;
+      this.viewer.scene.primitives.add(this.buildingsTileset);
+      this._setDiagnostic('buildings', 'ok', 'OSM buildings loaded.');
+      this.viewer.scene.requestRender?.();
+    } catch (error) {
+      this._setDiagnostic('buildings', 'warn', `OSM buildings unavailable: ${error?.message || error}`);
+      console.warn('[RealEarthBeta] OSM buildings failed to load', error);
+    }
   }
 
   _applyMapboxOverlay(Cesium, token) {
@@ -265,20 +282,27 @@ export class RealEarthBeta {
 
   getCameraStatus() {
     const Cesium = globalThis.Cesium;
-    if (!Cesium || !this.viewer) {
+    if (!Cesium || !this.viewer || !this.viewer.camera?.positionWC) {
       return {
         latitude: null,
         longitude: null,
         altitudeMeters: null,
       };
     }
-
-    const cartographic = Cesium.Cartographic.fromCartesian(this.viewer.camera.positionWC);
-    return {
-      latitude: Cesium.Math.toDegrees(cartographic.latitude),
-      longitude: Cesium.Math.toDegrees(cartographic.longitude),
-      altitudeMeters: cartographic.height,
-    };
+    try {
+      const cartographic = Cesium.Cartographic.fromCartesian(this.viewer.camera.positionWC);
+      return {
+        latitude: Cesium.Math.toDegrees(cartographic.latitude),
+        longitude: Cesium.Math.toDegrees(cartographic.longitude),
+        altitudeMeters: cartographic.height,
+      };
+    } catch {
+      return {
+        latitude: null,
+        longitude: null,
+        altitudeMeters: null,
+      };
+    }
   }
 
   resize() {
@@ -298,6 +322,10 @@ export class RealEarthBeta {
     if (this.viewer) {
       this.viewer.destroy();
       this.viewer = null;
+    }
+    if (this.buildingsTimer) {
+      globalThis.clearTimeout(this.buildingsTimer);
+      this.buildingsTimer = null;
     }
     if (this.container) {
       this.container.innerHTML = '';
