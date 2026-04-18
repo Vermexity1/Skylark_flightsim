@@ -186,6 +186,26 @@ function summarizeUserForAdmin(user) {
   };
 }
 
+function getWorldStreamingStatus() {
+  const providers = {
+    cesium: !!String(process.env.CESIUM_ION_TOKEN || '').trim(),
+    mapbox: !!String(process.env.MAPBOX_ACCESS_TOKEN || '').trim(),
+    arcgis: !!String(process.env.ARCGIS_API_KEY || '').trim(),
+  };
+  const requiredReady = providers.cesium && providers.mapbox;
+  return {
+    enabled: false,
+    ready: false,
+    phase: requiredReady ? 'credentials_configured' : 'not_configured',
+    providers,
+    migrationRequired: true,
+    note: requiredReady
+      ? 'Provider credentials are present, but the simulator still needs a globe-streaming engine migration before exact Earth mode can launch.'
+      : 'Exact Earth mode requires external terrain and imagery providers and is not configured yet.',
+    checkedAt: new Date().toISOString(),
+  };
+}
+
 function getBearerToken(req) {
   const auth = req.headers.authorization;
   if (!auth || !auth.toLowerCase().startsWith('bearer ')) return null;
@@ -275,6 +295,10 @@ app.get('/api/health', async (req, res) => {
     dbName: storageHealth.dbName,
     error: storageHealth.error ?? null,
   });
+});
+
+app.get('/api/world-streaming/status', (req, res) => {
+  res.json(getWorldStreamingStatus());
 });
 
 app.get('/api/leaderboard', async (req, res) => {

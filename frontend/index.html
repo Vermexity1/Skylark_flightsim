@@ -514,6 +514,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       <button id="menu-new-mission" class="btn btn-primary" data-ui-sound="launch" onclick="App.showSelect()" style="font-size:16px; padding:16px 36px;">
         ✈ New Mission
       </button>
+      <button id="menu-flight-school" class="btn btn-ghost" onclick="App.openFlightSchool()" style="font-size:14px; padding:13px 24px;">
+        Flight School
+      </button>
       <button id="menu-repair-hangar" class="btn btn-accent" onclick="App.showGarage()">
         Garage
       </button>
@@ -718,6 +721,20 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         <div id="settings-player-status" style="font-size:11px; color:#9fc7e7; margin-bottom:10px; line-height:1.5;">Sign in to access your player record.</div>
         <div id="settings-player-stats" style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px;"></div>
       </div>
+      <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+          <div>
+            <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">REAL EARTH BETA</div>
+            <div id="settings-world-streaming-status" style="font-size:11px; color:#9fc7e7; margin-top:8px;">Checking provider readiness...</div>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-ghost" onclick="App.refreshWorldStreamingStatus()" style="padding:8px 12px; font-size:11px;">Refresh</button>
+            <button class="btn btn-primary" onclick="App.showWorldStreamingInfo()" style="padding:8px 12px; font-size:11px;">Setup Guide</button>
+          </div>
+        </div>
+        <div id="settings-world-streaming-providers" style="display:grid; gap:8px;"></div>
+        <div id="settings-world-streaming-next" style="margin-top:12px;"></div>
+      </div>
       <div id="settings-dev-panel" style="display:none; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:12px; padding:16px;">
         <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
           <div>
@@ -827,7 +844,30 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       Repair the highlighted systems. Complete all tasks to restore the aircraft to 100%.
     </div>
     <div id="repair-bay-grid" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px;"></div>
-    <div id="repair-bay-status" style="font-size:11px; color:#00ff88; margin-top:16px; text-align:center;"></div>
+<div id="repair-bay-status" style="font-size:11px; color:#00ff88; margin-top:16px; text-align:center;"></div>
+  </div>
+</div>
+
+<div id="world-streaming-modal" style="
+  display:none; position:fixed; inset:0; z-index:35;
+  background:rgba(0,5,15,0.85); backdrop-filter:blur(10px);
+  align-items:center; justify-content:center;
+">
+  <div class="card" style="padding:24px; width:min(92vw, 760px); max-height:min(88vh, 820px); overflow:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:14px;">
+      <div>
+        <div style="font-size:11px; color:#00e5ff; letter-spacing:3px; font-family:'JetBrains Mono',monospace;">REAL EARTH BETA</div>
+        <div style="font-size:22px; font-weight:700; color:#e8f4fd; margin-top:6px;">World Streaming Setup</div>
+      </div>
+      <button class="btn btn-ghost" onclick="App.closeWorldStreamingInfo()" style="padding:8px 14px; font-size:12px;">Close</button>
+    </div>
+    <div id="world-streaming-modal-status" style="margin-bottom:14px;"></div>
+    <div id="world-streaming-modal-providers" style="display:grid; gap:8px; margin-bottom:14px;"></div>
+    <div style="font-size:11px; color:#6688aa; letter-spacing:2px; margin-bottom:10px;">NEXT STEPS</div>
+    <ol id="world-streaming-modal-checklist" style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;"></ol>
+    <div style="padding:12px 14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); font-size:11px; color:#9fc7e7; line-height:1.7;">
+      Full project checklist lives in <span style="color:#e8f4fd;">WORLD_STREAMING_SETUP.md</span> at the repo root. That file explains the legal boundaries, provider accounts, and aircraft licensing you would need to supply before exact-world mode can be implemented honestly.
+    </div>
   </div>
 </div>
 
@@ -984,6 +1024,12 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   import { AircraftModels } from './src/aircraft/AircraftModels.js';
   import { AIRCRAFT, AIRCRAFT_STAT_MAX, ENVIRONMENTS, CONTROLS, RACE } from './src/config.js';
   import { ASSET_SOURCES } from './src/assets/AssetCatalog.js';
+  import {
+    WORLD_STREAMING_PROVIDERS,
+    normalizeWorldStreamingStatus,
+    getWorldStreamingChecklist,
+    describeWorldStreamingPhase,
+  } from './src/world/WorldStreaming.js';
 
   // ── Constants ────────────────────────────────────────────
   const API_BASE = window.location.origin + '/api';
@@ -1118,6 +1164,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     practiceRankIndex: 0,
   };
   let activityState = normalizeActivityState();
+  let worldStreamingStatus = {
+    ...normalizeWorldStreamingStatus(),
+    loading: false,
+  };
 
   let splashToken = 0;
   let splashPinToken = 0;
@@ -1226,7 +1276,27 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         <div style="font-size:11px; color:#8899aa;">${cfg.description}</div>
         ${cfg.hasBuildings ? `<div style="margin-top:8px; font-size:9px; color:#00e5ff; letter-spacing:1px;">🏙 CITY ENVIRONMENT</div>` : ''}
       </div>
-    `).join('');
+    `).join('') + `
+      <div class="sel-card" style="cursor:default; border-style:dashed; background:rgba(7,18,34,0.72);">
+        <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px;">
+          <div>
+            <div style="font-weight:700; font-size:14px; color:#e8f4fd; margin-bottom:4px;">Real Earth Beta</div>
+            <div style="font-size:11px; color:#8899aa; line-height:1.6;">External streamed terrain, imagery, and 3D building providers are required before an exact-world mode can launch.</div>
+          </div>
+          <div style="font-size:10px; color:${worldStreamingStatus.requiredReady ? '#7cf0d4' : '#ffd36a'}; letter-spacing:1px;">${worldStreamingStatus.loading ? 'CHECKING' : describeWorldStreamingPhase(worldStreamingStatus.phase).toUpperCase()}</div>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 12px;">
+          ${WORLD_STREAMING_PROVIDERS.map(provider => {
+            const online = !!worldStreamingStatus.providers?.[provider.id];
+            return `<span style="padding:6px 10px; border-radius:999px; font-size:10px; letter-spacing:1px; background:${online ? 'rgba(124,240,212,0.12)' : 'rgba(255,211,106,0.12)'}; border:1px solid ${online ? 'rgba(124,240,212,0.28)' : 'rgba(255,211,106,0.22)'}; color:${online ? '#7cf0d4' : '#ffd36a'};">${provider.label}</span>`;
+          }).join('')}
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="event.stopPropagation(); App.showWorldStreamingInfo()" style="padding:8px 12px; font-size:11px;">Setup Guide</button>
+          <button class="btn btn-ghost" onclick="event.stopPropagation(); App.refreshWorldStreamingStatus()" style="padding:8px 12px; font-size:11px;">Refresh</button>
+        </div>
+      </div>
+    `;
 
     // Mode cards
     const modeDiv = document.getElementById('tab-content-mode');
@@ -1409,6 +1479,86 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   }
 
   // ── App controller ───────────────────────────────────────
+  function renderWorldStreamingProviders(status) {
+    return WORLD_STREAMING_PROVIDERS.map(provider => {
+      const online = !!status.providers?.[provider.id];
+      return `
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+          <div>
+            <div style="font-size:12px; color:#e8f4fd;">${provider.label}</div>
+            <div style="font-size:10px; color:#8aa6c3; line-height:1.5; margin-top:3px;">${provider.purpose}</div>
+          </div>
+          <div style="font-size:10px; letter-spacing:1px; color:${online ? '#7cf0d4' : provider.required ? '#ffd36a' : '#9fc7e7'};">
+            ${online ? 'CONFIGURED' : provider.required ? 'REQUIRED' : 'OPTIONAL'}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderWorldStreamingChecklistHtml(status) {
+    return getWorldStreamingChecklist(status)
+      .map(step => `<li style="margin-left:18px; color:#cfe6fb; line-height:1.6;">${escHtml(step)}</li>`)
+      .join('');
+  }
+
+  function renderWorldStreamingPanel() {
+    const status = normalizeWorldStreamingStatus(worldStreamingStatus);
+    const nextEl = document.getElementById('settings-world-streaming-next');
+    const statusEl = document.getElementById('settings-world-streaming-status');
+    const providersEl = document.getElementById('settings-world-streaming-providers');
+    const modalStatus = document.getElementById('world-streaming-modal-status');
+    const modalProviders = document.getElementById('world-streaming-modal-providers');
+    const modalChecklist = document.getElementById('world-streaming-modal-checklist');
+
+    const heading = worldStreamingStatus.loading
+      ? 'Checking provider readiness...'
+      : `${describeWorldStreamingPhase(status.phase)} · ${status.migrationRequired ? 'migration still required' : 'launch ready'}`;
+
+    if (statusEl) statusEl.textContent = heading;
+    if (nextEl) {
+      nextEl.innerHTML = `
+        <div style="font-size:11px; color:#9fc7e7; line-height:1.6;">${escHtml(status.note)}</div>
+        <div style="font-size:10px; color:#7fa7c7; margin-top:10px;">Full checklist: <span style="color:#dff4ff;">WORLD_STREAMING_SETUP.md</span></div>
+      `;
+    }
+    if (providersEl) providersEl.innerHTML = renderWorldStreamingProviders(status);
+    if (modalStatus) {
+      modalStatus.innerHTML = `
+        <div style="font-size:12px; color:#dff4ff; margin-bottom:6px;">${escHtml(heading)}</div>
+        <div style="font-size:11px; color:#9fc7e7; line-height:1.6;">${escHtml(status.note)}</div>
+      `;
+    }
+    if (modalProviders) modalProviders.innerHTML = renderWorldStreamingProviders(status);
+    if (modalChecklist) modalChecklist.innerHTML = renderWorldStreamingChecklistHtml(status);
+  }
+
+  async function loadWorldStreamingStatus(force = false) {
+    if (worldStreamingStatus.loading && !force) return worldStreamingStatus;
+    worldStreamingStatus = { ...worldStreamingStatus, loading: true };
+    renderWorldStreamingPanel();
+    try {
+      const resp = await fetch(`${API_BASE}/world-streaming/status`);
+      if (!resp.ok) throw new Error('World streaming status unavailable');
+      const data = await resp.json();
+      worldStreamingStatus = {
+        ...normalizeWorldStreamingStatus(data),
+        loading: false,
+      };
+    } catch (error) {
+      worldStreamingStatus = {
+        ...normalizeWorldStreamingStatus({
+          ...worldStreamingStatus,
+          note: 'Provider status could not be fetched. The handcrafted simulator still works, but exact-world readiness could not be verified.',
+        }),
+        loading: false,
+      };
+    }
+    renderWorldStreamingPanel();
+    if (document.getElementById('screen-select')?.style.display !== 'none') buildSelectionUI();
+    return worldStreamingStatus;
+  }
+
   function renderHangar() {
     const career = careerStore.getState();
     const fleet = careerStore.getAvailablePlanes().map(plane => {
@@ -1505,32 +1655,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         </div>
       `;
     }).join('');
-    adminConsole.users.forEach(user => {
-      const meta = list.querySelector(`[data-admin-meta="${user.id}"]`);
-      if (meta && !meta.querySelector('[data-admin-fleet]')) {
-        const fleet = document.createElement('div');
-        fleet.dataset.adminFleet = 'true';
-        fleet.style.marginTop = '4px';
-        fleet.textContent = `Fleet · ${Number(user.stats?.planes ?? 0)} planes · ${Number(user.stats?.guns ?? 0)} guns`;
-        meta.appendChild(fleet);
-      }
-      const actions = list.querySelector(`[data-admin-actions="${user.id}"]`);
-      if (actions && !actions.querySelector('[data-admin-tools]')) {
-        const tools = document.createElement('div');
-        tools.dataset.adminTools = 'true';
-        tools.style.display = 'contents';
-        tools.innerHTML = `
-          <button class="btn btn-accent" onclick="App.adjustPlayerMoney('${user.id}', 50000)" style="padding:8px 12px; font-size:11px;">+$50K</button>
-          <button class="btn btn-ghost" onclick="App.adjustPlayerMoney('${user.id}', -10000)" style="padding:8px 12px; font-size:11px;">Take $10K</button>
-          <button class="btn btn-ghost" onclick="App.managePlayerPlane('${user.id}', 'grant')" style="padding:8px 12px; font-size:11px;">Grant Plane</button>
-          <button class="btn btn-ghost" onclick="App.managePlayerPlane('${user.id}', 'revoke')" style="padding:8px 12px; font-size:11px;">Remove Plane</button>
-          <button class="btn btn-ghost" onclick="App.managePlayerGun('${user.id}', 'grant')" style="padding:8px 12px; font-size:11px;">Grant Gun</button>
-          <button class="btn btn-ghost" onclick="App.managePlayerGun('${user.id}', 'revoke')" style="padding:8px 12px; font-size:11px;">Remove Gun</button>
-          <button class="btn btn-ghost" onclick="App.repairPlayerFleet('${user.id}')" style="padding:8px 12px; font-size:11px;">Repair</button>
-        `;
-        actions.prepend(tools);
-      }
-    });
+    return;
   }
 
   function getRepairTasks(type) {
@@ -1636,6 +1761,18 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
   function needsOnboarding() {
     return !!authState?.token && !activityState.onboardingCompleted;
+  }
+
+  function shouldAutoOnboarding() {
+    if (!authState?.token || activityState.onboardingCompleted) return false;
+    const launches = Number(activityState.totalLaunches ?? 0);
+    const races = Number(activityState.totalRaceStarts ?? 0);
+    const challenges = Number(activityState.totalChallengeStarts ?? 0);
+    const seen = !!activityState.onboardingSeenAt || !!activityState.tutorialCompleted;
+    const createdAt = Date.parse(authState?.user?.createdAt ?? '');
+    const accountAgeMs = Number.isFinite(createdAt) ? (Date.now() - createdAt) : Number.POSITIVE_INFINITY;
+    const isFreshAccount = accountAgeMs >= 0 && accountAgeMs <= 1000 * 60 * 45;
+    return !seen && launches === 0 && races === 0 && challenges === 0 && isFreshAccount;
   }
 
   function renderOnboardingScreen() {
@@ -1895,6 +2032,32 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         </div>
       `;
     }).join('');
+    adminConsole.users.forEach(user => {
+      const meta = list.querySelector(`[data-admin-meta="${user.id}"]`);
+      if (meta && !meta.querySelector('[data-admin-fleet]')) {
+        const fleetMeta = document.createElement('div');
+        fleetMeta.dataset.adminFleet = 'true';
+        fleetMeta.style.marginTop = '4px';
+        fleetMeta.textContent = `Fleet · ${Number(user.stats?.planes ?? 0)} planes · ${Number(user.stats?.guns ?? 0)} guns`;
+        meta.appendChild(fleetMeta);
+      }
+      const actions = list.querySelector(`[data-admin-actions="${user.id}"]`);
+      if (actions && !actions.querySelector('[data-admin-tools]')) {
+        const tools = document.createElement('div');
+        tools.dataset.adminTools = 'true';
+        tools.style.display = 'contents';
+        tools.innerHTML = `
+          <button class="btn btn-accent" onclick="App.adjustPlayerMoney('${user.id}', 50000)" style="padding:8px 12px; font-size:11px;">+$50K</button>
+          <button class="btn btn-ghost" onclick="App.adjustPlayerMoney('${user.id}', -10000)" style="padding:8px 12px; font-size:11px;">Take $10K</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerPlane('${user.id}', 'grant')" style="padding:8px 12px; font-size:11px;">Grant Plane</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerPlane('${user.id}', 'revoke')" style="padding:8px 12px; font-size:11px;">Remove Plane</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerGun('${user.id}', 'grant')" style="padding:8px 12px; font-size:11px;">Grant Gun</button>
+          <button class="btn btn-ghost" onclick="App.managePlayerGun('${user.id}', 'revoke')" style="padding:8px 12px; font-size:11px;">Remove Gun</button>
+          <button class="btn btn-ghost" onclick="App.repairPlayerFleet('${user.id}')" style="padding:8px 12px; font-size:11px;">Repair</button>
+        `;
+        actions.prepend(tools);
+      }
+    });
   }
 
   async function loadAdminUsers(showToast = false) {
@@ -2338,6 +2501,8 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     bind('settings-gun-mode', appSettings.gunAimMode);
     renderControlsPanel('settings-controls-list', 'settings-controls-hint');
     renderAuthState();
+    renderWorldStreamingPanel();
+    loadWorldStreamingStatus(false);
     if (authState?.user?.role === 'dev' && !adminConsole.loading && adminConsole.users.length === 0 && !adminConsole.error) {
       loadAdminUsers(false);
     }
@@ -2411,10 +2576,6 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         this.showAuth();
         return;
       }
-      if (needsOnboarding()) {
-        this.showOnboarding();
-        return;
-      }
       hideAll();
       document.getElementById('screen-menu').style.display  = 'flex';
       document.getElementById('stars-canvas').style.display = 'block';
@@ -2444,6 +2605,21 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       document.getElementById('stars-canvas').style.display = 'block';
       renderSettingsScreen();
       hideSplash();
+    },
+
+    showWorldStreamingInfo() {
+      renderWorldStreamingPanel();
+      document.getElementById('world-streaming-modal').style.display = 'flex';
+      loadWorldStreamingStatus(false);
+    },
+
+    closeWorldStreamingInfo() {
+      document.getElementById('world-streaming-modal').style.display = 'none';
+    },
+
+    async refreshWorldStreamingStatus() {
+      await loadWorldStreamingStatus(true);
+      toast('World streaming status refreshed', 1600);
     },
 
     showCareer() {
@@ -2483,6 +2659,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       hideAll();
       document.getElementById('screen-select').style.display = 'flex';
       document.getElementById('stars-canvas').style.display  = 'block';
+      loadWorldStreamingStatus(false);
       buildSelectionUI();
       this.switchTab('aircraft');
       hideSplash();
@@ -2512,7 +2689,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         saveAuthState();
         if (data?.profile) applyRemoteProfile(data.profile);
         await loadAdminUsers(false);
-        if (needsOnboarding()) this.showOnboarding();
+        if (shouldAutoOnboarding()) this.showOnboarding();
         else this.showMenu();
         renderAuthState();
         return true;
@@ -2542,7 +2719,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
         applySignedInSession(data);
         await syncProfileNow(false);
         await loadAdminUsers(false);
-        if (needsOnboarding()) this.showOnboarding();
+        if (shouldAutoOnboarding()) this.showOnboarding();
         else this.showMenu();
         toast(`Signed in as ${data.user.username}`, 1800);
       } catch (error) {
@@ -2607,11 +2784,20 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       }
     },
 
+    openFlightSchool() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      this.showOnboarding();
+    },
+
     async startFlightSchool() {
       this.finishOnboarding(false);
       activityState = {
         ...activityState,
         tutorialActive: true,
+        onboardingSeenAt: activityState.onboardingSeenAt ?? new Date().toISOString(),
       };
       sel.aircraft = 'prop';
       sel.env = 'air_race';
@@ -3631,6 +3817,8 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     if (toolbar) toolbar.style.display = 'flex';
     const repairModal = document.getElementById('repair-bay-modal');
     if (repairModal) repairModal.style.display = 'none';
+    const worldStreamingModal = document.getElementById('world-streaming-modal');
+    if (worldStreamingModal) worldStreamingModal.style.display = 'none';
     document.getElementById('pause-menu').classList.remove('visible');
     document.getElementById('challenge-done').style.display = 'none';
   }
@@ -3767,6 +3955,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       menuSubtitle.innerHTML = `Modern browser flight simulator.<br/>${Object.keys(AIRCRAFT).length} aircraft | ${Object.keys(ENVIRONMENTS).length} environments | Full physics.`;
     }
     document.getElementById('menu-new-mission')?.replaceChildren(document.createTextNode('New Mission'));
+    document.getElementById('menu-flight-school')?.replaceChildren(document.createTextNode('Flight School'));
     document.getElementById('menu-leaderboard')?.replaceChildren(document.createTextNode('Leaderboard'));
     document.getElementById('menu-settings')?.replaceChildren(document.createTextNode('Settings'));
     document.getElementById('menu-career')?.replaceChildren(document.createTextNode('Career'));
@@ -3785,6 +3974,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     });
 
     document.getElementById('menu-new-mission')?.addEventListener('click', () => App.showSelect());
+    document.getElementById('menu-flight-school')?.addEventListener('click', () => App.openFlightSchool());
     document.getElementById('menu-repair-hangar')?.addEventListener('click', () => App.showHangar());
     document.getElementById('menu-leaderboard')?.addEventListener('click', () => App.showLeaderboard());
     document.getElementById('menu-settings')?.addEventListener('click', () => App.showSettings());
@@ -3857,7 +4047,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
   async function runInitialBoot() {
     bindUI();
-    renderHangar();
+    loadWorldStreamingStatus(false);
     hideSplash();
     await App.resumeSession();
     hideSplash();

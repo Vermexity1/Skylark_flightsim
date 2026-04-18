@@ -145,7 +145,7 @@ export class AircraftController {
     this._syncMotionToForward(this.config.startSpeed, 1);
     this.mesh.position.copy(this.position);
     this.mesh.quaternion.copy(this.quaternion);
-    this._updateLandingGear(dt);
+    this._updateLandingGear(0);
     this._updateCollisionBounds();
     this._ensureLandingGear();
     this._refreshDamageVisuals();
