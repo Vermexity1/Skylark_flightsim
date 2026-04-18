@@ -24,8 +24,12 @@ const MODEL_FALLBACKS = {
 };
 
 const _forward = new THREE.Vector3();
+const _up = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _worldUp = new THREE.Vector3(0, 1, 0);
 const _velocityDir = new THREE.Vector3();
 const _desiredVelocity = new THREE.Vector3();
+const _cameraOffset = new THREE.Vector3();
 const _rotationEuler = new THREE.Euler();
 
 function clamp(value, min, max) {
@@ -90,11 +94,15 @@ export class RealEarthFlightController {
     this.terrainHeight = 0;
     this.surfaceHeight = 0;
     this.surfaceClearance = GROUND_CLEARANCE_METERS;
+    this.cameraZoom = 1;
+    this.impactFlash = 0;
+    this.cameraJolt = 0;
     this._lastImpactTime = 0;
     this._cameraDestination = null;
 
     this._onKeyDown = this._handleKeyDown.bind(this);
     this._onKeyUp = this._handleKeyUp.bind(this);
+    this._onWheel = this._handleWheel.bind(this);
   }
 
   async start({ aircraft, bindings, spawn }) {
@@ -134,6 +142,9 @@ export class RealEarthFlightController {
     this.launchLabel = spawn?.launchLabel ?? 'Earth ground start';
     this.landed = null;
     this.gForce = 1;
+    this.cameraZoom = 1;
+    this.impactFlash = 0;
+    this.cameraJolt = 0;
     this.controlState.pitch = 0;
     this.controlState.roll = 0;
     this.controlState.yaw = 0;
@@ -178,17 +189,15 @@ export class RealEarthFlightController {
   getState() {
     if (!this.aircraft) return null;
     const orientation = this._getOrientationState();
+    const speed = this.velocity.length();
     return {
       aircraftName: this.aircraft.name,
       throttle: this.throttle,
       throttlePercent: Math.round(this.throttle * 100),
       boostFuel: this.boostFuel,
       boostActive: this.boostActive,
-      position: this.position.clone(),
-      velocity: this.velocity.clone(),
-      quaternion: this.quaternion.clone(),
-      speed: this.velocity.length(),
-      speedKnots: Math.round(this.velocity.length() * 1.94384),
+      speed,
+      speedKnots: Math.round(speed * 1.94384),
       altitude: this.position.y,
       altitudeMeters: this.position.y,
       altitudeFeet: Math.round(this.position.y * 3.28084),
@@ -209,6 +218,8 @@ export class RealEarthFlightController {
       nearGround: this.nearGround,
       launchLabel: this.launchLabel,
       warning: this.warning,
+      zoomPercent: Math.round(this.cameraZoom * 100),
+      impactFlash: this.impactFlash,
       latitude: THREE.MathUtils.radToDeg(this.lat),
       longitude: THREE.MathUtils.radToDeg(this.lon),
     };
@@ -217,11 +228,13 @@ export class RealEarthFlightController {
   _bindInputs() {
     window.addEventListener('keydown', this._onKeyDown, true);
     window.addEventListener('keyup', this._onKeyUp, true);
+    this.viewer?.canvas?.addEventListener('wheel', this._onWheel, { passive: false });
   }
 
   _unbindInputs() {
     window.removeEventListener('keydown', this._onKeyDown, true);
     window.removeEventListener('keyup', this._onKeyUp, true);
+    this.viewer?.canvas?.removeEventListener('wheel', this._onWheel, { passive: false });
   }
 
   _handleKeyDown(event) {
@@ -232,6 +245,24 @@ export class RealEarthFlightController {
   _handleKeyUp(event) {
     this.keys.delete(event.code);
     if (this._usesFlightBinding(event.code)) event.preventDefault();
+  }
+
+  _handleWheel(event) {
+    if (!this.active) return;
+    this.adjustZoom(event.deltaY * 0.0014);
+    event.preventDefault();
+  }
+
+  adjustZoom(delta = 0) {
+    this.cameraZoom = clamp(this.cameraZoom + delta, 0.72, 2.25);
+    this._applyCamera();
+    return this.cameraZoom;
+  }
+
+  resetZoom() {
+    this.cameraZoom = 1;
+    this._applyCamera();
+    return this.cameraZoom;
   }
 
   _usesFlightBinding(code) {
@@ -262,6 +293,8 @@ export class RealEarthFlightController {
     this.lastTime = now;
 
     this._updateFlight(dt);
+    this.impactFlash = Math.max(0, this.impactFlash - dt * 1.8);
+    this.cameraJolt = Math.max(0, this.cameraJolt - dt * 2.2);
     const Cesium = globalThis.Cesium;
     if (Cesium) this._syncAircraftEntity(Cesium);
     this._applyCamera();
@@ -270,7 +303,6 @@ export class RealEarthFlightController {
   }
 
   _updateFlight(dt) {
-    const Cesium = globalThis.Cesium;
     const speed = this.velocity.length();
     this.prevVelocity.copy(this.velocity);
 
@@ -341,13 +373,14 @@ export class RealEarthFlightController {
 
     this._advanceOnGlobe(dt);
     this.position.y += this.velocity.y * dt;
+    const currentSpeed = this.velocity.length();
 
     const surface = this._sampleSurfaceSync(THREE.MathUtils.radToDeg(this.lon), THREE.MathUtils.radToDeg(this.lat));
     this.terrainHeight = surface.terrainHeight;
     this.surfaceHeight = surface.surfaceHeight;
     const clearance = this.position.y - this.surfaceHeight;
     this.nearGround = clearance < 30;
-    this.gearDeployed = this.grounded || clearance < 220 || speed < this.aircraft.stallSpeed * 1.5;
+    this.gearDeployed = this.grounded || clearance < 220 || currentSpeed < this.aircraft.stallSpeed * 1.5;
 
     const obstacleCollision = surface.obstacleHeight > 4 && this.position.y < this.surfaceHeight + FLIGHT_CLEARANCE_METERS;
     if (!this.grounded && obstacleCollision) {
@@ -376,7 +409,7 @@ export class RealEarthFlightController {
         this.warning = 'Hard landing';
       } else {
         this.landed = 'smooth';
-        this.warning = braking ? 'Braking on rollout' : speed > 3 ? 'Rolling runway' : 'Holding short';
+        this.warning = braking ? 'Braking on rollout' : currentSpeed > 3 ? 'Rolling runway' : 'Holding short';
       }
 
       if (braking) {
@@ -394,7 +427,7 @@ export class RealEarthFlightController {
     } else {
       this.grounded = false;
       this.landed = null;
-      if (speed < this.aircraft.stallSpeed * 0.96) {
+      if (currentSpeed < this.aircraft.stallSpeed * 0.96) {
         this.warning = 'Approaching stall';
       } else if (braking) {
         this.warning = 'Air brake';
@@ -535,15 +568,17 @@ export class RealEarthFlightController {
   _ensurePlaneEntity(Cesium) {
     if (!this.viewer || this.planeEntity) return;
     const uri = this.modelSource?.file || '/assets/Models/private_jet.glb';
-    const minSize = Math.max(40, (Number(this.modelSource?.targetLength) || 14) * 3.2);
+    const sizeHint = Math.max(8, Number(this.modelSource?.targetLength) || 16);
     this.planeEntity = this.viewer.entities.add({
       id: `earth-flight-${Date.now()}`,
       position: Cesium.Cartesian3.fromRadians(this.lon, this.lat, this.position.y),
       model: {
         uri,
-        minimumPixelSize: minSize,
-        maximumScale: 1200,
-        scale: 1,
+        minimumPixelSize: clamp(sizeHint * 0.28, 10, 22),
+        maximumScale: clamp(sizeHint * 6.5, 90, 340),
+        scale: Number(this.modelSource?.earthScale) || 1,
+        shadows: Cesium.ShadowMode.ENABLED,
+        runAnimations: true,
       },
     });
   }
@@ -577,27 +612,40 @@ export class RealEarthFlightController {
 
     const position = Cesium.Cartesian3.fromRadians(this.lon, this.lat, this.position.y);
     const orientation = this._getOrientationState();
-    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(position);
     const speed = this.velocity.length();
-    const chaseDistance = clamp((Number(this.modelSource?.targetLength) || 16) * 2.1, 18, 72);
-    const chaseHeight = clamp((Number(this.modelSource?.targetLength) || 16) * 0.34, 4.5, 14) + clamp(speed * 0.01, 0, 10);
+    const sizeHint = Math.max(10, Number(this.modelSource?.targetLength) || 16);
+    const zoom = clamp(this.cameraZoom, 0.72, 2.25);
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+
+    _forward.set(0, 0, -1).applyQuaternion(this.quaternion).normalize();
+    _up.set(0, 1, 0).applyQuaternion(this.quaternion).lerp(_worldUp, 0.42).normalize();
+    _right.set(1, 0, 0).applyQuaternion(this.quaternion).normalize();
+
+    const chaseDistance = clamp(sizeHint * (1.12 + zoom * 0.9), 16, 132);
+    const chaseHeight = clamp(sizeHint * (0.18 + zoom * 0.11), 4.5, 24) + clamp(speed * 0.008, 0, 10);
+    _cameraOffset.copy(_forward).multiplyScalar(-chaseDistance).addScaledVector(_up, chaseHeight);
+    if (this.cameraJolt > 0.02) {
+      _cameraOffset.addScaledVector(_right, (Math.random() - 0.5) * this.cameraJolt * 2.6);
+      _cameraOffset.addScaledVector(_up, Math.random() * this.cameraJolt * 1.2);
+    }
+
     const localOffset = new Cesium.Cartesian3(
-      -Math.sin(orientation.heading) * chaseDistance,
-      -Math.cos(orientation.heading) * chaseDistance,
-      chaseHeight
+      _cameraOffset.x,
+      -_cameraOffset.z,
+      _cameraOffset.y
     );
     const targetDestination = Cesium.Matrix4.multiplyByPoint(enu, localOffset, new Cesium.Cartesian3());
     if (!this._cameraDestination) {
       this._cameraDestination = Cesium.Cartesian3.clone(targetDestination);
     } else {
-      Cesium.Cartesian3.lerp(this._cameraDestination, targetDestination, 0.16, this._cameraDestination);
+      Cesium.Cartesian3.lerp(this._cameraDestination, targetDestination, 0.12, this._cameraDestination);
     }
 
     this.viewer.camera.setView({
       destination: this._cameraDestination,
       orientation: {
         heading: orientation.heading,
-        pitch: Cesium.Math.toRadians(-9) + orientation.pitch * 0.22,
+        pitch: Cesium.Math.toRadians(-13) + orientation.pitch * 0.16,
         roll: orientation.roll * 0.08,
       },
     });
@@ -608,6 +656,8 @@ export class RealEarthFlightController {
     const now = performance.now();
     if (now - this._lastImpactTime < 900) return;
     this._lastImpactTime = now;
+    this.impactFlash = 1;
+    this.cameraJolt = Math.min(1, this.cameraJolt + 0.9);
     this.callbacks.onImpact?.(message);
   }
 }

@@ -923,6 +923,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;">
             <button id="real-earth-start-flight" class="btn btn-primary" onclick="App.startRealEarthFlight()" style="padding:9px 12px; font-size:11px;">Start Flight</button>
             <button id="real-earth-stop-flight" class="btn btn-ghost" onclick="App.stopRealEarthFlight()" style="padding:9px 12px; font-size:11px;">End Flight</button>
+            <button id="real-earth-zoom-out" class="btn btn-ghost" onclick="App.adjustRealEarthZoom(0.16)" style="padding:9px 12px; font-size:11px;">Zoom Out</button>
+            <button id="real-earth-zoom-in" class="btn btn-ghost" onclick="App.adjustRealEarthZoom(-0.16)" style="padding:9px 12px; font-size:11px;">Zoom In</button>
+            <button id="real-earth-zoom-reset" class="btn btn-ghost" onclick="App.resetRealEarthZoom()" style="padding:9px 12px; font-size:11px;">Reset View</button>
           </div>
           <div id="real-earth-flight-hud" style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; font-size:11px; color:#dff4ff;"></div>
           <div style="font-size:10px; color:#8aa6c3; line-height:1.6; margin-top:10px;">
@@ -1269,6 +1272,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   let earthFlight = null;
   let realEarthFlightState = null;
   let realEarthAircraftType = 'prop';
+  let realEarthFlightUiFrame = 0;
+  let realEarthLocationUpdatedAt = 0;
+  let realEarthForceLocationRefresh = false;
   const REAL_EARTH_JUMPS = [
     { id: 'sfo', label: 'SFO', name: 'San Francisco Intl', region: 'California, USA', lon: -122.3790, lat: 37.6213, altitude: 12000, airport: true, spawnHeadingDeg: 282 },
     { id: 'lax', label: 'LAX', name: 'Los Angeles Intl', region: 'California, USA', lon: -118.4085, lat: 33.9416, altitude: 13000, airport: true, spawnHeadingDeg: 251 },
@@ -1280,6 +1286,34 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     { id: 'gru', label: 'GRU', name: 'São Paulo Guarulhos', region: 'São Paulo, Brazil', lon: -46.4731, lat: -23.4356, altitude: 14000, airport: true, spawnHeadingDeg: 100 },
   ];
   let realEarthSelection = REAL_EARTH_JUMPS[0];
+
+  function flushRealEarthFlightUi(forceLocation = false) {
+    const cameraStatus = earthBeta?.getCameraStatus?.();
+    const now = performance.now();
+    if (cameraStatus && (forceLocation || now - realEarthLocationUpdatedAt > 120)) {
+      updateRealEarthLocationReadout(cameraStatus);
+      realEarthLocationUpdatedAt = now;
+    }
+    renderRealEarthFlightPanel();
+  }
+
+  function queueRealEarthFlightUi(forceLocation = false) {
+    if (forceLocation) realEarthForceLocationRefresh = true;
+    if (realEarthFlightUiFrame) return;
+    realEarthFlightUiFrame = requestAnimationFrame(() => {
+      const shouldRefreshLocation = realEarthForceLocationRefresh;
+      realEarthForceLocationRefresh = false;
+      realEarthFlightUiFrame = 0;
+      flushRealEarthFlightUi(shouldRefreshLocation);
+    });
+  }
+
+  function cancelRealEarthFlightUi() {
+    if (realEarthFlightUiFrame) cancelAnimationFrame(realEarthFlightUiFrame);
+    realEarthFlightUiFrame = 0;
+    realEarthForceLocationRefresh = false;
+    realEarthLocationUpdatedAt = 0;
+  }
 
   let splashToken = 0;
   let splashPinToken = 0;
@@ -1733,6 +1767,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     const overlayEl = document.getElementById('real-earth-viewer-overlay');
     const startBtn = document.getElementById('real-earth-start-flight');
     const stopBtn = document.getElementById('real-earth-stop-flight');
+    const zoomOutBtn = document.getElementById('real-earth-zoom-out');
+    const zoomInBtn = document.getElementById('real-earth-zoom-in');
+    const zoomResetBtn = document.getElementById('real-earth-zoom-reset');
     const catalog = getAircraftCatalog();
     const entries = Object.entries(catalog)
       .filter(([key]) => key !== 'custom_upload' || customPlaneDraft?.ready);
@@ -1760,6 +1797,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     }
     if (startBtn) startBtn.disabled = !!activeState || !earthBeta || realEarthOpening;
     if (stopBtn) stopBtn.disabled = !activeState;
+    if (zoomOutBtn) zoomOutBtn.disabled = !activeState;
+    if (zoomInBtn) zoomInBtn.disabled = !activeState;
+    if (zoomResetBtn) zoomResetBtn.disabled = !activeState;
 
     if (!hudEl) return;
 
@@ -1777,6 +1817,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       return;
     }
 
+    const verticalSpeedFpm = Math.round((activeState.verticalSpeed ?? 0) * 196.8504);
+    const impactFlash = Math.max(0, Math.min(1, Number(activeState.impactFlash) || 0));
+    const zoomPercent = Number.isFinite(activeState.zoomPercent) ? activeState.zoomPercent : 100;
     const cells = [
       ['Plane', activeState.aircraftName ?? catalog[realEarthAircraftType]?.name ?? realEarthAircraftType],
       ['Throttle', `${activeState.throttlePercent}%`],
@@ -1784,8 +1827,11 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       ['Altitude', `${Number(activeState.altitudeFeet || 0).toLocaleString()} ft`],
       ['Heading', `${(((activeState.headingDeg ?? 0) % 360) + 360).toFixed(0)}°`],
       ['Pitch / Roll', `${(activeState.pitchDeg ?? 0).toFixed(0)}° / ${(activeState.rollDeg ?? 0).toFixed(0)}°`],
+      ['Vertical Speed', `${verticalSpeedFpm.toLocaleString()} fpm`],
+      ['G-Force', `${(activeState.gForce ?? 1).toFixed(1)} G`],
       ['Gear', activeState.gearDeployed ? 'Down' : 'Up'],
       ['State', activeState.grounded ? 'Ground roll' : 'Airborne'],
+      ['Zoom', `${zoomPercent}%`],
     ];
     hudEl.innerHTML = cells.map(([label, value]) => `
       <div style="padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.03);">
@@ -1796,14 +1842,19 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
     if (overlayEl) {
       overlayEl.style.display = 'block';
+      const alertTint = impactFlash > 0.02
+        ? `box-shadow:0 0 0 1px rgba(255,120,120,${0.18 + impactFlash * 0.28}) inset;`
+        : '';
+      const alertColor = impactFlash > 0.06 ? '#ffb5b5' : '#8db8dd';
       overlayEl.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px;">
-          <div style="display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; min-width:min(720px,100%);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:16px; ${alertTint}">
+          <div style="display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; min-width:min(820px,100%);">
             ${[
               ['SPD', `${activeState.speedKnots} KT`],
               ['ALT', `${Number(activeState.altitudeFeet || 0).toLocaleString()} FT`],
               ['THR', `${activeState.throttlePercent}%`],
               ['HDG', `${(((activeState.headingDeg ?? 0) % 360) + 360).toFixed(0)}°`],
+              ['ZOOM', `${zoomPercent}%`],
             ].map(([label, value]) => `
               <div style="padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(5,12,22,0.66); backdrop-filter:blur(8px); box-shadow:0 10px 22px rgba(0,0,0,0.28);">
                 <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">${escHtml(label)}</div>
@@ -1812,9 +1863,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
             `).join('')}
           </div>
           <div style="min-width:220px; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.1); background:rgba(5,12,22,0.66); backdrop-filter:blur(8px); box-shadow:0 10px 22px rgba(0,0,0,0.28);">
-            <div style="font-size:10px; color:#8db8dd; letter-spacing:2px;">EARTH FLIGHT</div>
+            <div style="font-size:10px; color:${alertColor}; letter-spacing:2px;">${impactFlash > 0.08 ? 'IMPACT ALERT' : 'EARTH FLIGHT'}</div>
             <div style="margin-top:6px; font-size:12px; color:#eef7ff;">${escHtml(activeState.launchLabel ?? launchHub?.name ?? 'Ground spawn')}</div>
-            <div style="margin-top:6px; font-size:11px; color:${activeState.warning ? '#ffd36a' : '#9fc7e7'};">${escHtml(activeState.warning || (activeState.grounded ? 'Rolling on runway' : 'Climb and cruise'))}</div>
+            <div style="margin-top:6px; font-size:11px; color:${impactFlash > 0.08 ? '#ffb5b5' : (activeState.warning ? '#ffd36a' : '#9fc7e7')};">${escHtml(activeState.warning || (activeState.grounded ? 'Rolling on runway' : 'Climb and cruise'))}</div>
           </div>
         </div>
       `;
@@ -2980,6 +3031,10 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
             renderRealEarthPanel();
           },
           onCameraChanged: camera => {
+            if (earthFlight?.isActive?.()) {
+              queueRealEarthFlightUi();
+              return;
+            }
             updateRealEarthLocationReadout(camera);
           },
           onDiagnostics: diagnostics => {
@@ -3040,6 +3095,20 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       renderRealEarthPanel();
     },
 
+    adjustRealEarthZoom(delta = 0) {
+      if (!earthFlight?.isActive?.()) return;
+      earthFlight.adjustZoom(delta);
+      realEarthFlightState = earthFlight.getState();
+      renderRealEarthFlightPanel();
+    },
+
+    resetRealEarthZoom() {
+      if (!earthFlight?.isActive?.()) return;
+      earthFlight.resetZoom();
+      realEarthFlightState = earthFlight.getState();
+      renderRealEarthFlightPanel();
+    },
+
     async startRealEarthFlight() {
       if (!earthBeta?.viewer) {
         toast('Open Real Earth Beta first', 1800);
@@ -3079,9 +3148,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       earthFlight = new RealEarthFlightController(earthBeta.viewer, {
         onFlightState: state => {
           realEarthFlightState = state;
-          const cameraStatus = earthBeta?.getCameraStatus?.();
-          if (cameraStatus) updateRealEarthLocationReadout(cameraStatus);
-          renderRealEarthPanel();
+          queueRealEarthFlightUi();
         },
         onImpact: message => {
           toast(message || 'Impact detected', 1800);
@@ -3095,6 +3162,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           spawn,
         });
         realEarthFlightState = earthFlight.getState();
+        queueRealEarthFlightUi(true);
         renderRealEarthPanel();
         if (!realEarthSelection?.airport && launchHub) {
           toast(`Ground start engaged from ${launchHub.name}`, 1900);
@@ -3116,6 +3184,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       earthFlight?.stop?.();
       earthFlight = null;
       realEarthFlightState = null;
+      cancelRealEarthFlightUi();
       renderRealEarthPanel();
       if (wasActive && showToast) toast('Earth flight ended', 1500);
     },
@@ -4385,6 +4454,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   // ── Helpers ──────────────────────────────────────────────
   function hideAll() {
     realEarthOpening = false;
+    cancelRealEarthFlightUi();
     earthFlight?.stop?.();
     earthFlight = null;
     realEarthFlightState = null;
