@@ -70,6 +70,8 @@ export function describeWorldStreamingPhase(phase = 'not_configured') {
   switch (phase) {
     case 'credentials_configured':
       return 'Provider credentials configured';
+    case 'beta_viewer_ready':
+      return 'Real Earth Beta ready';
     case 'engine_migration_pending':
       return 'Credentials ready - engine migration pending';
     case 'provider_ready':
