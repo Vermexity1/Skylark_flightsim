@@ -194,15 +194,26 @@ function getWorldStreamingStatus() {
   };
   const requiredReady = providers.cesium && providers.mapbox;
   return {
-    enabled: false,
-    ready: false,
-    phase: requiredReady ? 'credentials_configured' : 'not_configured',
+    enabled: requiredReady,
+    ready: requiredReady,
+    phase: requiredReady ? 'beta_viewer_ready' : 'not_configured',
     providers,
     migrationRequired: true,
     note: requiredReady
-      ? 'Provider credentials are present, but the simulator still needs a globe-streaming engine migration before exact Earth mode can launch.'
+      ? 'Real Earth Beta viewer is ready. Full aircraft-in-world simulation still requires a deeper engine migration.'
       : 'Exact Earth mode requires external terrain and imagery providers and is not configured yet.',
     checkedAt: new Date().toISOString(),
+  };
+}
+
+function getWorldStreamingPublicConfig() {
+  return {
+    ...getWorldStreamingStatus(),
+    publicConfig: {
+      cesiumToken: String(process.env.CESIUM_ION_TOKEN || '').trim(),
+      mapboxToken: String(process.env.MAPBOX_ACCESS_TOKEN || '').trim(),
+      arcgisApiKey: String(process.env.ARCGIS_API_KEY || '').trim(),
+    },
   };
 }
 
@@ -299,6 +310,10 @@ app.get('/api/health', async (req, res) => {
 
 app.get('/api/world-streaming/status', (req, res) => {
   res.json(getWorldStreamingStatus());
+});
+
+app.get('/api/world-streaming/config', (req, res) => {
+  res.json(getWorldStreamingPublicConfig());
 });
 
 app.get('/api/leaderboard', async (req, res) => {

@@ -9,6 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;700&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.140/Build/Cesium/Widgets/widgets.css" rel="stylesheet" />
 
   <!-- Three.js from CDN (importmap for ES modules) -->
   <script type="importmap">
@@ -18,6 +19,7 @@
     }
   }
   </script>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.140/Build/Cesium/Cesium.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -514,6 +516,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       <button id="menu-new-mission" class="btn btn-primary" data-ui-sound="launch" onclick="App.showSelect()" style="font-size:16px; padding:16px 36px;">
         ✈ New Mission
       </button>
+      <button id="menu-real-earth" class="btn btn-accent" onclick="App.showRealEarthBeta()" style="font-size:14px; padding:13px 24px;">
+        Real Earth Beta
+      </button>
       <button id="menu-flight-school" class="btn btn-ghost" onclick="App.openFlightSchool()" style="font-size:14px; padding:13px 24px;">
         Flight School
       </button>
@@ -871,6 +876,64 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   </div>
 </div>
 
+<div id="screen-real-earth" class="screen" style="display:none; z-index:24; background:radial-gradient(circle at top, rgba(18,35,58,0.88), rgba(3,9,18,0.96));">
+  <div style="position:relative; z-index:1; width:100%; height:100%; display:grid; grid-template-columns:minmax(300px,360px) minmax(0,1fr); gap:18px; padding:18px;">
+    <div class="card" style="padding:20px; display:flex; flex-direction:column; gap:16px; overflow:auto;">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start;">
+        <div>
+          <div style="font-size:11px; color:#6fe7ff; letter-spacing:3px; font-family:'JetBrains Mono',monospace;">REAL EARTH BETA</div>
+          <h2 style="font-size:28px; color:#e8f4fd; margin:10px 0 6px; font-family:'Bebas Neue',sans-serif; letter-spacing:1px;">Streamed Globe Viewer</h2>
+          <div id="real-earth-status" style="font-size:12px; color:#9fc7e7; line-height:1.6;">
+            Checking external terrain and imagery providers...
+          </div>
+        </div>
+        <button class="btn btn-ghost" onclick="App.closeRealEarthBeta()" style="padding:8px 14px; font-size:11px;">Back</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <label style="display:flex; flex-direction:column; gap:8px; font-size:12px; color:#dff4ff;">
+          <span>Search a city, airport, or region</span>
+          <div style="display:flex; gap:8px;">
+            <input id="real-earth-search" type="text" placeholder="Search world location" style="flex:1; padding:12px 14px; background:rgba(8,20,44,0.78); border:1px solid rgba(98,200,255,0.22); border-radius:10px; color:#dff4ff;" />
+            <button class="btn btn-primary" onclick="App.searchRealEarthLocation()" style="padding:10px 14px; font-size:11px;">Go</button>
+          </div>
+        </label>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="App.flyRealEarthHome()" style="padding:9px 12px; font-size:11px;">Default View</button>
+          <button class="btn btn-ghost" onclick="App.refreshWorldStreamingStatus()" style="padding:9px 12px; font-size:11px;">Refresh Status</button>
+          <button class="btn btn-ghost" onclick="App.showWorldStreamingInfo()" style="padding:9px 12px; font-size:11px;">Setup Guide</button>
+        </div>
+      </div>
+
+      <div style="display:grid; gap:10px;">
+        <div style="padding:14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">LIVE CAMERA</div>
+          <div id="real-earth-location" style="font-size:12px; color:#dff4ff; line-height:1.7;">Waiting for viewer...</div>
+        </div>
+        <div style="padding:14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">PROVIDERS</div>
+          <div id="real-earth-providers" style="display:grid; gap:8px;"></div>
+        </div>
+        <div style="padding:14px; border-radius:12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07);">
+          <div style="font-size:10px; color:#8db8dd; letter-spacing:2px; margin-bottom:8px;">WHAT THIS MODE DOES</div>
+          <div style="font-size:11px; color:#9fc7e7; line-height:1.7;">
+            This mode is the safe first step into real-world streaming: globe terrain, satellite imagery, and 3D buildings.
+            The handcrafted simulator stays untouched while we prove out the provider-backed world stack.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:10px; overflow:hidden; display:flex; flex-direction:column;">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px 12px;">
+        <div style="font-size:11px; color:#8db8dd; letter-spacing:2px;">STREAMED WORLD VIEW</div>
+        <div style="font-size:11px; color:#9fc7e7;">Cesium terrain + provider imagery</div>
+      </div>
+      <div id="real-earth-viewer" style="flex:1; min-height:0; border-radius:16px; overflow:hidden; background:linear-gradient(180deg, rgba(10,22,36,0.92), rgba(2,6,12,0.98)); border:1px solid rgba(255,255,255,0.06);"></div>
+    </div>
+  </div>
+</div>
+
 <div id="screen-game" style="display:none; position:fixed; inset:0; z-index:20;">
   <canvas id="game-canvas" style="position:absolute; inset:0; width:100%; height:100%;"></canvas>
   <div id="flight-toolbar">
@@ -1030,6 +1093,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     getWorldStreamingChecklist,
     describeWorldStreamingPhase,
   } from './src/world/WorldStreaming.js';
+  import { RealEarthBeta } from './src/world/RealEarthBeta.js';
 
   // ── Constants ────────────────────────────────────────────
   const API_BASE = window.location.origin + '/api';
@@ -1081,6 +1145,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
   let engine  = null;
   let hud     = null;
   let state   = null;
+  let earthBeta = null;
   const damageStore = new DamageSystem();
   const careerStore = new CareerSystem();
   let authState = loadAuthState();
@@ -1168,6 +1233,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     ...normalizeWorldStreamingStatus(),
     loading: false,
   };
+  let worldStreamingConfig = null;
 
   let splashToken = 0;
   let splashPinToken = 0;
@@ -1283,7 +1349,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
             <div style="font-weight:700; font-size:14px; color:#e8f4fd; margin-bottom:4px;">Real Earth Beta</div>
             <div style="font-size:11px; color:#8899aa; line-height:1.6;">External streamed terrain, imagery, and 3D building providers are required before an exact-world mode can launch.</div>
           </div>
-          <div style="font-size:10px; color:${worldStreamingStatus.requiredReady ? '#7cf0d4' : '#ffd36a'}; letter-spacing:1px;">${worldStreamingStatus.loading ? 'CHECKING' : describeWorldStreamingPhase(worldStreamingStatus.phase).toUpperCase()}</div>
+          <div style="font-size:10px; color:${worldStreamingStatus.ready ? '#7cf0d4' : '#ffd36a'}; letter-spacing:1px;">${worldStreamingStatus.loading ? 'CHECKING' : describeWorldStreamingPhase(worldStreamingStatus.phase).toUpperCase()}</div>
         </div>
         <div style="display:flex; gap:6px; flex-wrap:wrap; margin:10px 0 12px;">
           ${WORLD_STREAMING_PROVIDERS.map(provider => {
@@ -1292,6 +1358,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
           }).join('')}
         </div>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="btn btn-accent" onclick="event.stopPropagation(); App.showRealEarthBeta()" style="padding:8px 12px; font-size:11px;" ${worldStreamingStatus.ready ? '' : 'disabled'}>${worldStreamingStatus.ready ? 'Open Beta' : 'Viewer Locked'}</button>
           <button class="btn btn-primary" onclick="event.stopPropagation(); App.showWorldStreamingInfo()" style="padding:8px 12px; font-size:11px;">Setup Guide</button>
           <button class="btn btn-ghost" onclick="event.stopPropagation(); App.refreshWorldStreamingStatus()" style="padding:8px 12px; font-size:11px;">Refresh</button>
         </div>
@@ -1519,6 +1586,9 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     if (nextEl) {
       nextEl.innerHTML = `
         <div style="font-size:11px; color:#9fc7e7; line-height:1.6;">${escHtml(status.note)}</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <button class="btn btn-accent" onclick="App.showRealEarthBeta()" style="padding:8px 12px; font-size:11px;" ${status.ready ? '' : 'disabled'}>${status.ready ? 'Open Real Earth Beta' : 'Viewer Locked'}</button>
+        </div>
         <div style="font-size:10px; color:#7fa7c7; margin-top:10px;">Full checklist: <span style="color:#dff4ff;">WORLD_STREAMING_SETUP.md</span></div>
       `;
     }
@@ -1555,8 +1625,50 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       };
     }
     renderWorldStreamingPanel();
+    renderRealEarthPanel();
     if (document.getElementById('screen-select')?.style.display !== 'none') buildSelectionUI();
     return worldStreamingStatus;
+  }
+
+  async function loadWorldStreamingConfig(force = false) {
+    if (worldStreamingConfig && !force) return worldStreamingConfig;
+    const resp = await fetch(`${API_BASE}/world-streaming/config`);
+    if (!resp.ok) throw new Error('World streaming config unavailable');
+    worldStreamingConfig = await resp.json();
+    return worldStreamingConfig;
+  }
+
+  function updateRealEarthLocationReadout(camera = {}) {
+    const locationEl = document.getElementById('real-earth-location');
+    if (!locationEl) return;
+    const lat = Number(camera?.latitude);
+    const lon = Number(camera?.longitude);
+    const alt = Number(camera?.altitudeMeters);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      locationEl.textContent = 'Waiting for viewer...';
+      return;
+    }
+    const ns = lat >= 0 ? 'N' : 'S';
+    const ew = lon >= 0 ? 'E' : 'W';
+    const altitude = Number.isFinite(alt) ? `${Math.round(alt).toLocaleString()} m` : 'n/a';
+    locationEl.innerHTML = `
+      <div style="font-size:12px; color:#dff4ff;">${Math.abs(lat).toFixed(4)}° ${ns} · ${Math.abs(lon).toFixed(4)}° ${ew}</div>
+      <div style="font-size:11px; color:#9fc7e7; margin-top:4px;">Camera altitude: ${altitude}</div>
+    `;
+  }
+
+  function renderRealEarthPanel() {
+    const status = normalizeWorldStreamingStatus(worldStreamingStatus);
+    const statusEl = document.getElementById('real-earth-status');
+    const providersEl = document.getElementById('real-earth-providers');
+    if (statusEl) {
+      statusEl.textContent = worldStreamingStatus.loading
+        ? 'Checking provider readiness...'
+        : status.note;
+    }
+    if (providersEl) {
+      providersEl.innerHTML = renderWorldStreamingProviders(status);
+    }
   }
 
   function renderHangar() {
@@ -2619,7 +2731,86 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
     async refreshWorldStreamingStatus() {
       await loadWorldStreamingStatus(true);
+      renderRealEarthPanel();
       toast('World streaming status refreshed', 1600);
+    },
+
+    async showRealEarthBeta() {
+      if (!authState?.token) {
+        this.showAuth();
+        return;
+      }
+      try {
+        const status = await loadWorldStreamingStatus(false);
+        renderRealEarthPanel();
+        if (!status.ready) {
+          this.showWorldStreamingInfo();
+          toast('Real Earth Beta still needs provider setup', 2200);
+          return;
+        }
+        const config = await loadWorldStreamingConfig(true);
+        hideAll();
+        document.getElementById('screen-real-earth').style.display = 'flex';
+        document.getElementById('stars-canvas').style.display = 'none';
+        updateRealEarthLocationReadout();
+        renderRealEarthPanel();
+
+        const container = document.getElementById('real-earth-viewer');
+        earthBeta = new RealEarthBeta(container, {
+          onReady: camera => updateRealEarthLocationReadout(camera),
+          onCameraChanged: camera => updateRealEarthLocationReadout(camera),
+        });
+        await earthBeta.init(config.publicConfig ?? {});
+        renderRealEarthPanel();
+        toast('Real Earth Beta ready', 1600);
+      } catch (error) {
+        console.error('[RealEarthBeta] launch failed', error);
+        if (earthBeta) {
+          earthBeta.destroy();
+          earthBeta = null;
+        }
+        this.showMenu();
+        toast(error?.message || 'Real Earth Beta could not start', 2600);
+      }
+    },
+
+    closeRealEarthBeta() {
+      if (earthBeta) {
+        earthBeta.destroy();
+        earthBeta = null;
+      }
+      this.showMenu();
+    },
+
+    async searchRealEarthLocation() {
+      if (!earthBeta) {
+        toast('Open Real Earth Beta first', 1800);
+        return;
+      }
+      const query = document.getElementById('real-earth-search')?.value?.trim();
+      if (!query) {
+        toast('Enter a city, airport, or region', 1800);
+        return;
+      }
+      try {
+        const found = await earthBeta.flyToQuery(query);
+        if (!found) {
+          toast('Location not found', 1800);
+          return;
+        }
+        toast(`Flying to ${query}`, 1600);
+      } catch (error) {
+        toast(error?.message || 'Search failed', 2200);
+      }
+    },
+
+    flyRealEarthHome() {
+      if (!earthBeta) {
+        toast('Open Real Earth Beta first', 1800);
+        return;
+      }
+      earthBeta.flyToDefaultView();
+      toast('Returning to default view', 1400);
     },
 
     showCareer() {
@@ -3809,10 +4000,14 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
 
   // ── Helpers ──────────────────────────────────────────────
   function hideAll() {
-    ['screen-auth','screen-onboarding','screen-menu','screen-select','screen-leaderboard','screen-settings','screen-career','screen-hangar','screen-game'].forEach(id => {
+    ['screen-auth','screen-onboarding','screen-menu','screen-select','screen-leaderboard','screen-settings','screen-career','screen-hangar','screen-real-earth','screen-game'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     });
+    if (earthBeta) {
+      earthBeta.destroy();
+      earthBeta = null;
+    }
     const toolbar = document.getElementById('flight-toolbar');
     if (toolbar) toolbar.style.display = 'flex';
     const repairModal = document.getElementById('repair-bay-modal');
@@ -3955,6 +4150,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
       menuSubtitle.innerHTML = `Modern browser flight simulator.<br/>${Object.keys(AIRCRAFT).length} aircraft | ${Object.keys(ENVIRONMENTS).length} environments | Full physics.`;
     }
     document.getElementById('menu-new-mission')?.replaceChildren(document.createTextNode('New Mission'));
+    document.getElementById('menu-real-earth')?.replaceChildren(document.createTextNode('Real Earth Beta'));
     document.getElementById('menu-flight-school')?.replaceChildren(document.createTextNode('Flight School'));
     document.getElementById('menu-leaderboard')?.replaceChildren(document.createTextNode('Leaderboard'));
     document.getElementById('menu-settings')?.replaceChildren(document.createTextNode('Settings'));
@@ -3974,6 +4170,7 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     });
 
     document.getElementById('menu-new-mission')?.addEventListener('click', () => App.showSelect());
+    document.getElementById('menu-real-earth')?.addEventListener('click', () => App.showRealEarthBeta());
     document.getElementById('menu-flight-school')?.addEventListener('click', () => App.openFlightSchool());
     document.getElementById('menu-repair-hangar')?.addEventListener('click', () => App.showHangar());
     document.getElementById('menu-leaderboard')?.addEventListener('click', () => App.showLeaderboard());
@@ -4011,6 +4208,13 @@ Browser-based 3D flight simulator.<br/>Thirteen aircraft · Six environments · 
     document.getElementById('settings-guidance')?.addEventListener('change', event => App.toggleAppSetting('guidanceEnabled', event.target.checked));
     document.getElementById('settings-autoland')?.addEventListener('change', event => App.toggleAppSetting('autoLandDefault', event.target.checked));
     document.getElementById('settings-gun-mode')?.addEventListener('change', event => App.toggleAppSetting('gunAimMode', event.target.value));
+    document.getElementById('real-earth-search')?.addEventListener('keydown', event => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        App.searchRealEarthLocation();
+      }
+    });
+    window.addEventListener('resize', () => earthBeta?.resize?.());
 
     window.addEventListener('keydown', event => {
       if (!pendingControlBinding) return;
