@@ -30,6 +30,7 @@ const _worldUp = new THREE.Vector3(0, 1, 0);
 const _velocityDir = new THREE.Vector3();
 const _desiredVelocity = new THREE.Vector3();
 const _cameraOffset = new THREE.Vector3();
+const _cameraLook = new THREE.Vector3();
 const _rotationEuler = new THREE.Euler();
 
 function clamp(value, min, max) {
@@ -79,9 +80,12 @@ export class RealEarthFlightController {
     this.throttle = 0;
     this.gForce = 1;
     this.landed = null;
+    this.landedTimer = 0;
     this.nearGround = false;
     this.gearDeployed = true;
     this.grounded = true;
+    this.isLanded = false;
+    this.isCrashed = false;
     this.warning = 'Holding short';
     this.launchLabel = 'Earth ground start';
     this.controlState = { pitch: 0, roll: 0, yaw: 0 };
@@ -97,8 +101,13 @@ export class RealEarthFlightController {
     this.cameraZoom = 1;
     this.impactFlash = 0;
     this.cameraJolt = 0;
+    this._gearTarget = 1;
+    this._gearDeploy = 1;
+    this._gearManualOverride = false;
+    this._gearToggleLatched = false;
     this._lastImpactTime = 0;
     this._cameraDestination = null;
+    this._cesiumScratch = null;
 
     this._onKeyDown = this._handleKeyDown.bind(this);
     this._onKeyUp = this._handleKeyUp.bind(this);
@@ -138,13 +147,20 @@ export class RealEarthFlightController {
     this.boostActive = false;
     this.grounded = true;
     this.gearDeployed = true;
+    this.isLanded = false;
+    this.isCrashed = false;
     this.warning = 'Holding short';
     this.launchLabel = spawn?.launchLabel ?? 'Earth ground start';
     this.landed = null;
+    this.landedTimer = 0;
     this.gForce = 1;
     this.cameraZoom = 1;
     this.impactFlash = 0;
     this.cameraJolt = 0;
+    this._gearTarget = 1;
+    this._gearDeploy = 1;
+    this._gearManualOverride = false;
+    this._gearToggleLatched = false;
     this.controlState.pitch = 0;
     this.controlState.roll = 0;
     this.controlState.yaw = 0;
@@ -175,6 +191,7 @@ export class RealEarthFlightController {
     this.keys.clear();
     this._unbindInputs();
     this._setCameraControls(true);
+    this.viewer?.camera?.lookAtTransform?.(globalThis.Cesium?.Matrix4?.IDENTITY);
     this._removePlaneEntity();
     this.aircraft = null;
     this.modelSource = null;
@@ -211,9 +228,11 @@ export class RealEarthFlightController {
       maxSpeed: this.aircraft.maxSpeed,
       stallSpeed: this.aircraft.stallSpeed,
       gearDeployed: this.gearDeployed,
-      gearProgress: this.gearDeployed ? 1 : 0,
+      gearProgress: this._gearDeploy,
       grounded: this.grounded,
       onGround: this.grounded,
+      isLanded: this.isLanded,
+      isCrashed: this.isCrashed,
       landed: this.landed,
       nearGround: this.nearGround,
       launchLabel: this.launchLabel,
@@ -305,6 +324,7 @@ export class RealEarthFlightController {
   _updateFlight(dt) {
     const speed = this.velocity.length();
     this.prevVelocity.copy(this.velocity);
+    this.landedTimer = Math.max(0, this.landedTimer - dt);
 
     this._updateThrottleAndBoost(dt);
 
@@ -312,6 +332,14 @@ export class RealEarthFlightController {
     const rollInput = (this._isPressed('rollRight') ? 1 : 0) - (this._isPressed('rollLeft') ? 1 : 0);
     const yawInput = (this._isPressed('yawRight') ? 1 : 0) - (this._isPressed('yawLeft') ? 1 : 0);
     const braking = this._isPressed('brake');
+    const gearTogglePressed = this._isPressed('landingGearToggle');
+    if (gearTogglePressed && !this._gearToggleLatched) {
+      this._gearToggleLatched = true;
+      this._gearManualOverride = true;
+      this._gearTarget = this._gearTarget > 0.5 ? 0 : 1;
+    } else if (!gearTogglePressed) {
+      this._gearToggleLatched = false;
+    }
 
     const stats = this.aircraft.stats ?? { agility: 3 };
     const authority = clamp(speed / Math.max(this.aircraft.stallSpeed * 0.9, 1), 0, 1);
@@ -363,7 +391,7 @@ export class RealEarthFlightController {
     this.gForce = accel.length() / PHYSICS.GRAVITY;
 
     this.velocity.addScaledVector(accel, dt);
-    this._alignVelocityToForward(dt, braking);
+    this._alignVelocityToForward(dt, { brake: braking });
 
     const maxSpeed = this.boostActive ? this.aircraft.maxSpeed * 1.5 : this.aircraft.maxSpeed;
     const nextSpeed = this.velocity.length();
@@ -380,13 +408,44 @@ export class RealEarthFlightController {
     this.surfaceHeight = surface.surfaceHeight;
     const clearance = this.position.y - this.surfaceHeight;
     this.nearGround = clearance < 30;
-    this.gearDeployed = this.grounded || clearance < 220 || currentSpeed < this.aircraft.stallSpeed * 1.5;
+    const gearAltitude = Math.max(0, clearance);
+    const forcedGearDown = this.isLanded || gearAltitude < 220 || currentSpeed < this.aircraft.stallSpeed * 1.5;
+    if (forcedGearDown) {
+      this._gearTarget = 1;
+      if (this.isLanded) this._gearManualOverride = false;
+    } else if (!this._gearManualOverride) {
+      this._gearTarget = 0;
+    }
+    this._gearDeploy = THREE.MathUtils.lerp(this._gearDeploy, this._gearTarget, 1 - Math.exp(-dt * 3.6));
+    this.gearDeployed = this._gearDeploy > 0.55;
+    if (this._gearDeploy > 0.04) {
+      const dragRatio = clamp(currentSpeed / Math.max(this.aircraft.maxSpeed, 1), 0, 1);
+      const gearDrag = Math.exp(-dt * this._gearDeploy * dragRatio * 0.42);
+      this.velocity.multiplyScalar(gearDrag);
+    }
+
+    if (!this.isCrashed && clearance > 0 && clearance < 18 && currentSpeed > this.aircraft.stallSpeed * 0.85) {
+      const groundEffect = (1 - clamp(clearance / 18, 0, 1))
+        * clamp(currentSpeed / Math.max(this.aircraft.maxSpeed, 1), 0, 1);
+      this.velocity.y += groundEffect * dt * 12;
+    }
+
+    if (clearance > 8) {
+      this.isLanded = false;
+      if (this.landed !== 'crash' && this.landedTimer <= 0) {
+        this.landed = null;
+      }
+    }
 
     const obstacleCollision = surface.obstacleHeight > 4 && this.position.y < this.surfaceHeight + FLIGHT_CLEARANCE_METERS;
-    if (!this.grounded && obstacleCollision) {
+    if (!this.isCrashed && !this.grounded && obstacleCollision) {
       this.position.y = this.surfaceHeight + FLIGHT_CLEARANCE_METERS;
-      this.velocity.multiplyScalar(0.16);
+      this.velocity.multiplyScalar(0.14);
       this.velocity.y = 0;
+      this.isCrashed = true;
+      this.isLanded = false;
+      this.landed = 'crash';
+      this.landedTimer = 2.5;
       this.warning = 'Obstacle strike';
       this._signalImpact('Obstacle impact');
     }
@@ -396,38 +455,58 @@ export class RealEarthFlightController {
       const impactSpeed = Math.abs(this.prevVelocity.y);
       this.position.y = groundLevel;
       this.grounded = true;
-      this.velocity.y = 0;
+      if (this.velocity.y < 0) this.velocity.y = 0;
 
       if (impactSpeed > 8) {
         this.landed = 'crash';
-        this.velocity.multiplyScalar(0.2);
+        this.landedTimer = 2.5;
+        this.isCrashed = true;
+        this.isLanded = false;
+        this.velocity.multiplyScalar(0.15);
         this.warning = 'Crash landing';
         this._signalImpact('Hard impact');
       } else if (impactSpeed > 2.4) {
-        this.landed = 'hard';
-        this.velocity.multiplyScalar(0.84);
+        if (!this.isCrashed) {
+          this.landed = impactSpeed < 3 ? 'smooth' : 'hard';
+          this.landedTimer = 2;
+        }
+        this.isLanded = true;
+        this.velocity.multiplyScalar(0.9);
         this.warning = 'Hard landing';
       } else {
-        this.landed = 'smooth';
+        this.isLanded = currentSpeed > 2;
+        if (this.landedTimer <= 0 && !this.isCrashed) {
+          this.landed = 'smooth';
+        }
         this.warning = braking ? 'Braking on rollout' : currentSpeed > 3 ? 'Rolling runway' : 'Holding short';
       }
 
-      if (braking) {
+      if (braking && this.nearGround) {
         const horizontalSpeed = Math.hypot(this.velocity.x, this.velocity.z);
-        const brakingAccel = PHYSICS.GRAVITY * 0.74 + Math.max(2, this.aircraft.stallSpeed * 0.08);
+        const brakingAccel = PHYSICS.GRAVITY * (this.isLanded ? 0.72 : 0.34) + Math.max(2, this.aircraft.stallSpeed * 0.08);
         const nextHorizontal = Math.max(0, horizontalSpeed - brakingAccel * dt);
         const scale = horizontalSpeed > 0.0001 ? nextHorizontal / horizontalSpeed : 0;
         this.velocity.x *= scale;
         this.velocity.z *= scale;
+        this.velocity.y = Math.min(this.velocity.y, 0);
       }
 
-      if (this.throttle < 0.04 && !this.boostActive && Math.hypot(this.velocity.x, this.velocity.z) < Math.max(0.12, this.aircraft.stallSpeed * 0.004)) {
+      if (
+        !this.isCrashed &&
+        this.isLanded &&
+        this.nearGround &&
+        this.throttle < 0.04 &&
+        !this.boostActive &&
+        Math.hypot(this.velocity.x, this.velocity.z) < Math.max(0.12, this.aircraft.stallSpeed * 0.04)
+      ) {
         this.velocity.set(0, 0, 0);
       }
     } else {
       this.grounded = false;
-      this.landed = null;
-      if (currentSpeed < this.aircraft.stallSpeed * 0.96) {
+      this.isLanded = false;
+      if (this.isCrashed) {
+        this.warning = 'Reset required';
+      } else if (currentSpeed < this.aircraft.stallSpeed * 0.96) {
         this.warning = 'Approaching stall';
       } else if (braking) {
         this.warning = 'Air brake';
@@ -442,6 +521,9 @@ export class RealEarthFlightController {
   _updateThrottleAndBoost(dt) {
     const throttleInput = (this._isPressed('throttleUp') ? 1 : 0) - (this._isPressed('throttleDown') ? 1 : 0);
     this.throttle = clamp(this.throttle + throttleInput * dt * 0.5, 0, 1);
+    if (this._isPressed('brake')) {
+      this.throttle = Math.max(0, this.throttle - dt * 3.4);
+    }
 
     const wantsBoost = this._isPressed('boost');
     if (wantsBoost && this.boostFuel > 0 && this.boostCooldown <= 0) {
@@ -468,14 +550,18 @@ export class RealEarthFlightController {
     this.lon = wrapLongitude(this.lon + east / Math.max(1, radius * Math.cos(this.lat)));
   }
 
-  _alignVelocityToForward(dt, braking) {
+  _alignVelocityToForward(dt, input = null) {
     const speed = this.velocity.length();
     if (speed < 0.001) return;
 
-    if (this.grounded && (braking || this.throttle < 0.06)) {
-      const damping = Math.exp(-dt * (braking ? 4.8 : 3.4));
+    if ((this.isLanded || this.landed === 'smooth' || this.landed === 'hard') && (input?.brake || this.throttle < 0.06)) {
+      const damping = Math.exp(-dt * (input?.brake ? 4.8 : 3.4));
       this.velocity.x *= damping;
       this.velocity.z *= damping;
+      if (Math.hypot(this.velocity.x, this.velocity.z) < Math.max(0.04, this.aircraft.stallSpeed * 0.002)) {
+        this.velocity.x = 0;
+        this.velocity.z = 0;
+      }
       return;
     }
 
@@ -489,6 +575,24 @@ export class RealEarthFlightController {
     _velocityDir.lerp(_forward, alignmentFactor).normalize();
     _desiredVelocity.copy(_velocityDir).multiplyScalar(targetSpeed);
     this.velocity.copy(_desiredVelocity);
+  }
+
+  _getCesiumScratch(Cesium) {
+    if (!this._cesiumScratch) {
+      this._cesiumScratch = {
+        transform: new Cesium.Matrix4(),
+        cameraOffsetLocal: new Cesium.Cartesian3(),
+        lookOffsetLocal: new Cesium.Cartesian3(),
+        upLocal: new Cesium.Cartesian3(),
+        cameraOffsetWorld: new Cesium.Cartesian3(),
+        lookOffsetWorld: new Cesium.Cartesian3(),
+        upWorld: new Cesium.Cartesian3(),
+        destination: new Cesium.Cartesian3(),
+        lookAt: new Cesium.Cartesian3(),
+        direction: new Cesium.Cartesian3(),
+      };
+    }
+    return this._cesiumScratch;
   }
 
   _getOrientationState() {
@@ -611,42 +715,53 @@ export class RealEarthFlightController {
     if (!Cesium || !this.viewer || !this.aircraft) return;
 
     const position = Cesium.Cartesian3.fromRadians(this.lon, this.lat, this.position.y);
-    const orientation = this._getOrientationState();
     const speed = this.velocity.length();
     const sizeHint = Math.max(10, Number(this.modelSource?.targetLength) || 16);
     const zoom = clamp(this.cameraZoom, 0.72, 2.25);
-    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(position);
+    const scratch = this._getCesiumScratch(Cesium);
+    Cesium.Transforms.eastNorthUpToFixedFrame(position, undefined, scratch.transform);
 
     _forward.set(0, 0, -1).applyQuaternion(this.quaternion).normalize();
-    _up.set(0, 1, 0).applyQuaternion(this.quaternion).lerp(_worldUp, 0.42).normalize();
-    _right.set(1, 0, 0).applyQuaternion(this.quaternion).normalize();
+    _up.set(0, 1, 0).applyQuaternion(this.quaternion).lerp(_worldUp, 0.65).normalize();
+    const followDistance = clamp(Math.max(sizeHint * (3.6 + zoom * 1.05), 22 + zoom * 10), 30, 210);
+    const followHeight = clamp(Math.max(sizeHint * 0.95 + 3.8, 6 + zoom * 1.8), 8, 58);
+    const lookAhead = Math.max(14, sizeHint * 3.2) + clamp(speed * 0.015, 0, 18);
+    const lookLift = Math.max(1.8, sizeHint * 0.5);
 
-    const chaseDistance = clamp(sizeHint * (1.12 + zoom * 0.9), 16, 132);
-    const chaseHeight = clamp(sizeHint * (0.18 + zoom * 0.11), 4.5, 24) + clamp(speed * 0.008, 0, 10);
-    _cameraOffset.copy(_forward).multiplyScalar(-chaseDistance).addScaledVector(_up, chaseHeight);
+    _cameraOffset.copy(_forward).multiplyScalar(-followDistance).addScaledVector(_up, followHeight);
+    _cameraLook.copy(_forward).multiplyScalar(lookAhead).addScaledVector(_up, lookLift);
+
+    scratch.cameraOffsetLocal.x = _cameraOffset.x;
+    scratch.cameraOffsetLocal.y = -_cameraOffset.z;
+    scratch.cameraOffsetLocal.z = _cameraOffset.y;
+    scratch.lookOffsetLocal.x = _cameraLook.x;
+    scratch.lookOffsetLocal.y = -_cameraLook.z;
+    scratch.lookOffsetLocal.z = _cameraLook.y;
+    scratch.upLocal.x = _up.x;
+    scratch.upLocal.y = -_up.z;
+    scratch.upLocal.z = _up.y;
+
+    Cesium.Matrix4.multiplyByPointAsVector(scratch.transform, scratch.cameraOffsetLocal, scratch.cameraOffsetWorld);
+    Cesium.Matrix4.multiplyByPointAsVector(scratch.transform, scratch.lookOffsetLocal, scratch.lookOffsetWorld);
+    Cesium.Matrix4.multiplyByPointAsVector(scratch.transform, scratch.upLocal, scratch.upWorld);
+
     if (this.cameraJolt > 0.02) {
-      _cameraOffset.addScaledVector(_right, (Math.random() - 0.5) * this.cameraJolt * 2.6);
-      _cameraOffset.addScaledVector(_up, Math.random() * this.cameraJolt * 1.2);
+      scratch.cameraOffsetWorld.x += (Math.random() - 0.5) * this.cameraJolt * 2.5;
+      scratch.cameraOffsetWorld.y += (Math.random() - 0.5) * this.cameraJolt * 2.5;
+      scratch.cameraOffsetWorld.z += (Math.random() - 0.5) * this.cameraJolt * 1.2;
     }
 
-    const localOffset = new Cesium.Cartesian3(
-      _cameraOffset.x,
-      -_cameraOffset.z,
-      _cameraOffset.y
-    );
-    const targetDestination = Cesium.Matrix4.multiplyByPoint(enu, localOffset, new Cesium.Cartesian3());
-    if (!this._cameraDestination) {
-      this._cameraDestination = Cesium.Cartesian3.clone(targetDestination);
-    } else {
-      Cesium.Cartesian3.lerp(this._cameraDestination, targetDestination, 0.12, this._cameraDestination);
-    }
+    Cesium.Cartesian3.add(position, scratch.cameraOffsetWorld, scratch.destination);
+    Cesium.Cartesian3.add(position, scratch.lookOffsetWorld, scratch.lookAt);
+    Cesium.Cartesian3.subtract(scratch.lookAt, scratch.destination, scratch.direction);
+    Cesium.Cartesian3.normalize(scratch.direction, scratch.direction);
+    Cesium.Cartesian3.normalize(scratch.upWorld, scratch.upWorld);
 
     this.viewer.camera.setView({
-      destination: this._cameraDestination,
+      destination: scratch.destination,
       orientation: {
-        heading: orientation.heading,
-        pitch: Cesium.Math.toRadians(-13) + orientation.pitch * 0.16,
-        roll: orientation.roll * 0.08,
+        direction: scratch.direction,
+        up: scratch.upWorld,
       },
     });
     this.viewer.scene.requestRender?.();
